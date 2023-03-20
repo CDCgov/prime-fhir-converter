@@ -1,5 +1,4 @@
 plugins {
-    // Apply the org.jetbrains.kotlin.jvm Plugin to add support for Kotlin.
     id("org.jetbrains.kotlin.jvm") version "1.8.10"
     id("org.jlleitschuh.gradle.ktlint") version "11.3.1"
     `java-library`
@@ -7,23 +6,14 @@ plugins {
     jacoco
 }
 
-// Set the compiler JVM target to support older deployments
-java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
-}
-
 val compileKotlin: org.jetbrains.kotlin.gradle.tasks.KotlinCompile by tasks
 val compileTestKotlin: org.jetbrains.kotlin.gradle.tasks.KotlinCompile by tasks
 compileKotlin.kotlinOptions {
-    jvmTarget = "11"
     allWarningsAsErrors = true
-    // Warnings are treated as errors
     useK2 = false
 }
 
 compileTestKotlin.kotlinOptions {
-    jvmTarget = "11"
     allWarningsAsErrors = true
 }
 
