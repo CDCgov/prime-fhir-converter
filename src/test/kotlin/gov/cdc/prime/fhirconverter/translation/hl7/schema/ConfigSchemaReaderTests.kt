@@ -164,7 +164,7 @@ class ConfigSchemaReaderTests {
         assertThat {
             ConfigSchemaReader.readSchemaTreeFromFile(
                 "ORU_R01",
-                "src/test/resources/fhirengine/translation/hl7/schema/schema-read-test-04"
+                "src/test/resources/schema/schema-read-test-04"
             )
         }.isFailure()
     }
@@ -174,7 +174,7 @@ class ConfigSchemaReaderTests {
         assertThat {
             ConfigSchemaReader.readSchemaTreeFromFile(
                 "ORU_R01",
-                "src/test/resources/fhirengine/translation/hl7/schema/schema-read-test-05"
+                "src/test/resources/schema/schema-read-test-05"
             )
         }.isFailure()
     }

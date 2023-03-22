@@ -360,7 +360,7 @@ class FhirToHl7ConverterTests {
         assertThat {
             FhirToHl7Converter(
                 "ORU_R01",
-                "src/test/resources/fhirengine/translation/hl7/schema/schema-read-test-01"
+                "src/test/resources/schema/schema-read-test-01"
             ).convert(bundle)
         }.isFailure()
 
