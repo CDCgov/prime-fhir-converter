@@ -1,5 +1,5 @@
-group = 'gov.cdc.prime'
-version = '0.1'
+group = "gov.cdc.prime"
+version = "0.1"
 
 plugins {
     id("org.jetbrains.kotlin.jvm") version "1.8.10"
