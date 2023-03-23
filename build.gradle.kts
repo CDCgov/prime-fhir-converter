@@ -9,14 +9,20 @@ plugins {
     jacoco
 }
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
 val compileKotlin: org.jetbrains.kotlin.gradle.tasks.KotlinCompile by tasks
 val compileTestKotlin: org.jetbrains.kotlin.gradle.tasks.KotlinCompile by tasks
 compileKotlin.kotlinOptions {
+    jvmTarget = "11"
     allWarningsAsErrors = true
     useK2 = false
 }
 
 compileTestKotlin.kotlinOptions {
+    jvmTarget = "11"
     allWarningsAsErrors = true
 }
 
