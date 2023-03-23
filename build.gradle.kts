@@ -1,3 +1,6 @@
+group = 'gov.cdc.prime'
+version = '0.1'
+
 plugins {
     id("org.jetbrains.kotlin.jvm") version "1.8.10"
     id("org.jlleitschuh.gradle.ktlint") version "11.3.1"
