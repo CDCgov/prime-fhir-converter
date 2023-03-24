@@ -157,7 +157,7 @@ elements:
 Extended schemas can:
 * Define a different type and version of Hl7 v2 message than the top level schema
 * Override one or more elements based on the element name
-  * You override element can reside at the top level element list regardless where they reside in the inherited schema
+  * The overriding element can reside at the top level element list regardless where they reside in the inherited schema
   * Since you are overriding elements, you only need the element name and any properties you are overriding
 * Add new elements in the same manner as any schema
 * The order of the elements matter. The top level schema elements are loaded first.
