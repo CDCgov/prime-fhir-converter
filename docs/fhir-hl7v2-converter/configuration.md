@@ -36,7 +36,7 @@ There are two type of elements:
 ## Common Element Properties
 | Property Name | Required? | Description                                                                                                                                                                                                      | Default                                |
 |---------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------|
-| name          | Required  | The name of the element. Element names must be unique within a schema including child schemas. This uniqueness allows for the overwriting of elements in extended schemas.                                       | None                                   |
+| name          | Required  | The name of the element. Element names must be unique within a schema including child schemas. This uniqueness allows for the overriding of elements in extended schemas.                                        | None                                   |
 | constants     | Optional  | A map of element level constants to be used by the element or its child schema                                                                                                                                   | None                                   |
 | resource      | Optional  | A FHIR Path expression that defines the focus FHIR resource for subsequent FHIR Path evaluations within the element and child schema.                                                                            | Bundle root or parent defined resource |
 | condition     | Optional  | A FHIR Path expression that must evaluate to a Boolean to determine if the element should be processed. If the expression does not evaluate to a boolean then an exception is logged and it evaluates to `false` | `true`                                 |
@@ -93,7 +93,7 @@ Important notes on child schemas:
 ```
 
 ## Order of Evaluation
-Within a schema, elements are evaluated in order. This allows for setting up elements with conditionals to overwrite values
+Within a schema, elements are evaluated in order. This allows for setting up elements with conditionals to override values
 as needed. Note that child schema elements are evaluated in order as well at the time the parent element is evaluated.
 The element properties are evaluated in the following order:
 1. constants - constants are loaded and can be used in any property that supports it. Note that constants are treated as
@@ -142,14 +142,14 @@ having constants as a prefix by using the syntax `` %`<constant_name>-<prefix> `
 # Extending Schemas
 Top level schemas can extend any existing top level schema in order to reduce duplicate elements and facilitate
 customization for different purposes. You can chain as many top level schemas as you wish. Note that reusing an element
-name will result in overwriting the existing element, whether the existing element is at the top level of the extended schema or one of its child schemas. 
+name will result in overriding the existing element, whether the existing element is at the top level of the extended schema or one of its child schemas. 
 
 ```yaml
 hl7Type: ORU_R01
 hl7Version: 2.5.1
 extends: ../ORU_R01/ORU_R01-base
 elements:
-  # Disable an element. Note we only need the name and what is overwritten.
+  # Disable an element. Note we only need the name and what is overridden.
   - name: filler-order
     condition: 'false'
 ```
