@@ -13,6 +13,7 @@ plugins {
 java {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
+    withSourcesJar()
 }
 val compileKotlin: org.jetbrains.kotlin.gradle.tasks.KotlinCompile by tasks
 val compileTestKotlin: org.jetbrains.kotlin.gradle.tasks.KotlinCompile by tasks
@@ -32,6 +33,12 @@ tasks.test {
 }
 
 tasks.jar {
+    manifest {
+        attributes(
+            mapOf("Implementation-Title" to project.name, "Implementation-Version" to project.version)
+        )
+    }
+    finalizedBy("kotlinSourcesJar")
     finalizedBy("shadowJar")
 }
 
