@@ -142,7 +142,7 @@ having constants as a prefix by using the syntax `` %`<constant_name>-<prefix> `
 # Extending Schemas
 Top level schemas can extend any existing top level schema in order to reduce duplicate elements and facilitate
 customization for different purposes. You can chain as many top level schemas as you wish. Note that reusing an element
-name will result in overwriting the existing element. 
+name will result in overwriting the existing element, whether the existing element is at the top level of the extended schema or one of its child schemas. 
 
 ```yaml
 hl7Type: ORU_R01
