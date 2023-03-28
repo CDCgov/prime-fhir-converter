@@ -2,18 +2,27 @@ General disclaimer This repository was created for use by CDC programs to collab
 
 # Overview
 
-TBD overview
+The PRIME FHIR Converter is a Java-based library, written in Kotlin, and created as part of the CDC’s Pandemic-Ready
+Interoperability Modernization Effort (PRIME). This library contains various utilities to manipulate FHIR data, most
+notably a configurable FHIR to HL7 v2 conversion utility. This library is currently used by the 
+[CDC’s ReportStream](https://github.com/CDCgov/prime-data-hub) project to support the delivery of Electronic 
+Laboratory Reporting (ELR) messages to public health agencies (PHAs) that can only ingest HL7 v2 and not FHIR.
+
+We believe this library can increase FHIR adoption within health IT ecosystems by supporting a modular 
+modernization process where organizations can use a FHIR based system where desired and convert the output 
+to HL7 v2 for use in legacy systems.
 
 # Usage
+## Adding to Your Project
 This Java-based library has not yet been published to a binary repository. To use it in your application, you can download
 the lastest JAR file from the [releases](https://github.com/CDCgov/prime-fhir-converter/releases) or include
 the library as part of your Gradle build scripts as follows:
 
-In you `settings.gradle.kts` or `settings.gradle` add this repository as a source (note this feature requires 
+In your `settings.gradle.kts` or `settings.gradle` add this repository as a source (note this feature requires 
 Gradle 4.10 or higher)
 ```groovy
 sourceControl {
-    gitRepository("https://github.com/CDCgov/prime-fhir-converter.git") {
+    gitRepository(java.net.URI("https://github.com/CDCgov/prime-fhir-converter.git")) {
         producesModule("gov.cdc.prime:prime-fhir-converter")
     }
 }
@@ -23,10 +32,73 @@ Add the dependency to your `build.gradle.kts`
 ```kotlin
 implementation("gov.cdc.prime:prime-fhir-converter:0.1")
 ```
-or `build.gradle` file
+or your `build.gradle` file
 ```groovy
 implementation 'gov.cdc.prime:prime-fhir-converter:0.1'
 ```
+
+## FHIR to HL7 v2 Conversion
+The FHIR to HL7 v2 conversion utility takes in a message bundle that follows the
+[HL7 v2 to FHIR Mapping Implementation Guide](https://build.fhir.org/ig/HL7/v2-to-fhir/index.html)
+and converts the data to an HL7 v2 message per the a provided
+[configuration schema](docs/fhir-hl7v2-converter/configuration.md). A configuration schema is a very flexible list 
+of rules on how build an HL7 v2 message from a FHIR bundle which specifies the type and version of HL7 v2 message
+to generate as well as how to extract and translate the FHIR data into HL7 v2 fields. 
+[A base configuration](src/main/resources/hl7_mapping/ORU_R01) that can
+be extended is provided in the library which follows the 
+[HL7 v2 to FHIR Mapping Implementation Guide](https://build.fhir.org/ig/HL7/v2-to-fhir/index.html) for 
+converting a FHIR bundle to an HL7 v2 ORU R01 observation message. 
+
+### Java Usage
+
+```java
+// Read a bundle using the HAPI FHIR library
+IParser bundleParser = FhirContext.forR4().newJsonParser();
+String bundleText = Files.readString(Path.of("sample_fhir.json"));
+Bundle bundle = bundleParser.parseResource(Bundle.class, bundleText);
+
+// Convert it to HL7 v2 - Note we do not specify the YML extension as part of the schema name
+FhirToHl7Converter converter = new FhirToHl7Converter("src/main/resources/hl7_mapping/ORU_R01/ORU_R01-base", false, null);      
+Message hl7Message = converter.convert(bundle);
+
+// Print out the HL7 v2 message using the HAPI HL7 v2 library
+System.out.println(hl7Message.encode());
+```
+
+### Kotlin Usage
+
+```kotlin
+// Read a bundle using the HAPI FHIR library
+val bundleParser = FhirContext.forR4().newJsonParser()
+val bundleText = File("sample_fhir.json").readText()
+val bundle = bundleParser.parseResource(Bundle::class.java, bundleText)
+
+// Convert it to HL7 v2 - Note we do not specify the YML extension as part of the schema name
+val converter = FhirToHl7Converter("src/main/resources/hl7_mapping/ORU_R01/ORU_R01-base")
+val hl7Message = converter.convert(bundle)
+
+// Print out the HL7 v2 message using the HAPI HL7 v2 library
+println(hl7Message.encode())
+```
+
+## HL7 v2 to FHIR Conversion
+An HL7 v2 to FHIR converter is not included as part of this library, but the CDC ReportStream project uses the 
+[Linux4Health Hl7 v2 to FHIR converter library](https://github.com/LinuxForHealth/hl7v2-fhir-converter) to convert
+HL7 v2 to FHIR. You can find
+a [sample implementation](https://github.com/CDCgov/prime-reportstream/blob/master/prime-router/src/main/kotlin/fhirengine/translation/HL7toFhirTranslator.kt) and 
+[conversion configuration](https://github.com/CDCgov/prime-reportstream/tree/master/prime-router/metadata/fhir_mapping)
+for ORU R01 in the [ReportStream repository](https://github.com/CDCgov/prime-reportstream). 
+
+## Extended FHIR Path Evaluation Utilities
+This library contains extensions to the FHIR Path functions that are used to facilitate the conversion process from 
+FHIR to HL7 v2, but can be used on their own for other purposes. See
+[FHIR Path Custom Functions](docs/fhir-path-custom-functions.md)
+
+## Future Functionality in v1.0
+More features are coming in the near future, including support in the FHIR to HL7 v2 converter for any message type
+or version supported by the HAPI HL7 v2 library, as well as a FHIR transform utility to manipulate the data in 
+a FHIR bundle to enrich or fix its data. Set a [Watch](https://docs.github.com/en/rest/activity/watching) on this
+repository to stay up-to-date with changes to this library.
 
 # Building
 To build the library, you need to have installed a Java JDK 11 or higher and run the command
