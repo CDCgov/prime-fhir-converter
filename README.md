@@ -2,7 +2,7 @@ General disclaimer This repository was created for use by CDC programs to collab
 
 # Overview
 
-The PRIME FHIR Converter is a Java-based library, written in Kotlin, and created as part of the CDC’s Pandemic-Ready
+The PRIME FHIR Converter is a JVM based library, written in Kotlin, and created as part of the CDC’s Pandemic-Ready
 Interoperability Modernization Effort (PRIME). This library contains various utilities to manipulate FHIR data, most
 notably a configurable FHIR to HL7 v2 conversion utility. This library is currently used by the 
 [CDC’s ReportStream](https://github.com/CDCgov/prime-data-hub) project to support the delivery of Electronic 
@@ -14,7 +14,7 @@ to HL7 v2 for use in legacy systems.
 
 # Usage
 ## Adding to Your Project
-This Java-based library has not yet been published to a binary repository. To use it in your application, you can download
+This library has not yet been published to a binary repository. To use it in your application, you can download
 the lastest JAR file from the [releases](https://github.com/CDCgov/prime-fhir-converter/releases) or include
 the library as part of your Gradle build scripts as follows:
 
