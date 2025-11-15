@@ -1,5 +1,5 @@
 group = "gov.cdc.prime"
-version = "0.1"
+version = project.findProperty("version") as String? ?: "0.1-SNAPSHOT"
 
 plugins {
     id("org.jetbrains.kotlin.jvm") version "1.8.10"

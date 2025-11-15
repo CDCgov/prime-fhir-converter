@@ -161,6 +161,10 @@ jobs:
 
       - name: List build artifacts
         run: |
+          echo "=== Files in build/libs/ ==="
+          ls -lh build/libs/
+          echo ""
+          echo "Expected version: ${{ inputs.version }}"
           echo "### Build Artifacts:" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           ls -lh build/libs/ >> $GITHUB_STEP_SUMMARY
