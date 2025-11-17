@@ -406,7 +406,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
         with:
-          cache-disabled: true
+          cache-read-only: true
 
       - name: Grant execute permission to gradlew
         run: chmod +x ./gradlew
@@ -415,6 +415,7 @@ jobs:
         run: |
           ./gradlew clean build -x test \
             -Pversion=${{ inputs.version }} \
+            --rerun-tasks \
             --no-daemon \
             --stacktrace
 
