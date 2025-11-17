@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": "Renovate configuration for passive dependency monitoring with SHA256 pinning. Automatically creates PRs only for CRITICAL vulnerabilities. All other updates require manual approval via dashboard.",
+  "description": "Renovate configuration for passive dependency monitoring with SHA256 pinning. All updates require manual approval via dashboard - no automatic PRs.",
   "extends": [
     "config:recommended",
     "helpers:pinGitHubActionDigests"
@@ -27,20 +27,6 @@
     "enabled": false
   },
   "packageRules": [
-    {
-      "description": "CRITICAL vulnerabilities - auto-create PR immediately (bypass approval mode)",
-      "matchDatasources": ["*"],
-      "vulnerabilitySeverity": ["CRITICAL"],
-      "prCreation": "immediate",
-      "prPriority": 100,
-      "labels": [
-        "dependencies",
-        "security",
-        "critical",
-        "auto-created"
-      ],
-      "commitMessagePrefix": "deps(CRITICAL):"
-    },
     {
       "description": "GitHub Actions - Pin to SHA256 with version comments",
       "matchManagers": ["github-actions"],
@@ -166,12 +152,11 @@
       "security",
       "vulnerability"
     ],
-    "automerge": false,
-    "prPriority": 30
+    "automerge": false
   },
   "dependencyDashboard": true,
   "dependencyDashboardTitle": "Renovate Dependency Dashboard",
-  "dependencyDashboardHeader": "This dashboard shows all pending dependency updates. **Passive Mode**: Check boxes to create PRs for specific updates. CRITICAL vulnerabilities create PRs automatically.",
+  "dependencyDashboardHeader": "This dashboard shows all pending dependency updates. **Passive Mode**: Check boxes to create PRs for specific updates. All updates (including vulnerabilities) require manual approval.",
   "dependencyDashboardLabels": [
     "renovate-dashboard"
   ]
