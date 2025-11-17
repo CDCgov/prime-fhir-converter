@@ -415,6 +415,7 @@ jobs:
         run: |
           ./gradlew clean build -x test \
             -Pversion=${{ inputs.version }} \
+            --rerun-tasks \
             --no-daemon \
             --stacktrace
 
