@@ -1,0 +1,178 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Renovate configuration for passive dependency monitoring with SHA256 pinning. Automatically creates PRs only for CRITICAL vulnerabilities. All other updates require manual approval via dashboard.",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "timezone": "America/New_York",
+  "schedule": [
+    "after 9pm",
+    "before 8am"
+  ],
+  "labels": [
+    "dependencies",
+    "renovate"
+  ],
+  "commitMessagePrefix": "deps:",
+  "separateMajorMinor": true,
+  "separateMultipleMajor": true,
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 0,
+  "automerge": false,
+  "platformAutomerge": false,
+  "prCreation": "approval",
+  "rebaseWhen": "behind-base-branch",
+  "lockFileMaintenance": {
+    "enabled": false
+  },
+  "packageRules": [
+    {
+      "description": "CRITICAL vulnerabilities - auto-create PR immediately (bypass approval mode)",
+      "matchDatasources": ["*"],
+      "vulnerabilitySeverity": ["CRITICAL"],
+      "prCreation": "immediate",
+      "prPriority": 100,
+      "labels": [
+        "dependencies",
+        "security",
+        "critical",
+        "auto-created"
+      ],
+      "commitMessagePrefix": "deps(CRITICAL):"
+    },
+    {
+      "description": "GitHub Actions - Pin to SHA256 with version comments",
+      "matchManagers": ["github-actions"],
+      "commitMessagePrefix": "ci:",
+      "labels": [
+        "dependencies",
+        "github-actions",
+        "security"
+      ],
+      "groupName": "GitHub Actions",
+      "automerge": false,
+      "pinDigests": true,
+      "separateMajorMinor": false,
+      "prPriority": 10
+    },
+    {
+      "description": "Gradle - Security updates (Log4j, Jackson)",
+      "matchManagers": ["gradle"],
+      "matchPackagePatterns": [
+        "^org\\.apache\\.logging\\.log4j",
+        "^com\\.fasterxml\\.jackson"
+      ],
+      "commitMessagePrefix": "deps(security):",
+      "labels": [
+        "dependencies",
+        "gradle",
+        "security",
+        "high-priority"
+      ],
+      "groupName": "Security Updates",
+      "prPriority": 20,
+      "automerge": false
+    },
+    {
+      "description": "Gradle - FHIR/HAPI libraries",
+      "matchManagers": ["gradle"],
+      "matchPackagePatterns": [
+        "^ca\\.uhn\\.hapi\\.fhir",
+        "^ca\\.uhn\\.hapi"
+      ],
+      "commitMessagePrefix": "deps(fhir):",
+      "labels": [
+        "dependencies",
+        "gradle",
+        "fhir"
+      ],
+      "groupName": "FHIR Libraries",
+      "prPriority": 5
+    },
+    {
+      "description": "Gradle - Testing dependencies",
+      "matchManagers": ["gradle"],
+      "matchPackagePatterns": [
+        "junit",
+        "^io\\.mockk",
+        "^com\\.willowtreeapps\\.assertk",
+        "kotlin-test"
+      ],
+      "matchDepTypes": ["test"],
+      "commitMessagePrefix": "deps(test):",
+      "labels": [
+        "dependencies",
+        "gradle",
+        "testing"
+      ],
+      "groupName": "Test Dependencies",
+      "prPriority": 3
+    },
+    {
+      "description": "Gradle - Kotlin ecosystem",
+      "matchManagers": ["gradle"],
+      "matchPackagePatterns": [
+        "^org\\.jetbrains\\.kotlin",
+        "kotlin"
+      ],
+      "commitMessagePrefix": "deps(kotlin):",
+      "labels": [
+        "dependencies",
+        "gradle",
+        "kotlin"
+      ],
+      "groupName": "Kotlin Ecosystem",
+      "prPriority": 7
+    },
+    {
+      "description": "Gradle - Build plugins",
+      "matchManagers": ["gradle"],
+      "matchPackagePatterns": [
+        "^org\\.jlleitschuh\\.gradle\\.ktlint",
+        "^com\\.github\\.johnrengelman\\.shadow"
+      ],
+      "matchDepTypes": ["plugin"],
+      "commitMessagePrefix": "deps(plugins):",
+      "labels": [
+        "dependencies",
+        "gradle",
+        "build-plugins"
+      ],
+      "groupName": "Gradle Plugins",
+      "prPriority": 4
+    },
+    {
+      "description": "Block major Kotlin updates (breaking changes)",
+      "matchManagers": ["gradle"],
+      "matchPackagePatterns": ["^org\\.jetbrains\\.kotlin"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": "All other Gradle dependencies",
+      "matchManagers": ["gradle"],
+      "commitMessagePrefix": "deps(gradle):",
+      "labels": [
+        "dependencies",
+        "gradle"
+      ],
+      "prPriority": 1
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": [
+      "security",
+      "vulnerability"
+    ],
+    "automerge": false,
+    "prPriority": 30
+  },
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Renovate Dependency Dashboard",
+  "dependencyDashboardHeader": "This dashboard shows all pending dependency updates. **Passive Mode**: Check boxes to create PRs for specific updates. CRITICAL vulnerabilities create PRs automatically.",
+  "dependencyDashboardLabels": [
+    "renovate-dashboard"
+  ]
+}

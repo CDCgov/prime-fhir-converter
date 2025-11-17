@@ -1,0 +1,592 @@
+name: Build, Test, and Publish
+
+# Manual workflow trigger with version input and publish option
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (semantic versioning: X.Y.Z)'
+        required: true
+        type: string
+      publish:
+        description: 'Publish artifacts to GitHub Releases'
+        required: false
+        type: boolean
+        default: false
+
+# Least-privilege permissions following security best practices
+permissions:
+  contents: write        # Required for creating releases and tags
+  security-events: write # Required for uploading SARIF scan results
+  actions: read         # Required for workflow execution
+
+# Environment variables used across jobs
+env:
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
+  GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.caching=true
+
+jobs:
+  # ============================================================================
+  # JOB 1: VALIDATE
+  # Validate version format and ensure version doesn't already exist
+  # ============================================================================
+  validate:
+    name: Validate Version
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Fetch all history for tag checking
+
+      - name: Validate semantic version format
+        run: |
+          VERSION="${{ inputs.version }}"
+
+          # Validate semantic versioning format (X.Y.Z or X.Y.Z-suffix)
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$'; then
+            echo "::error::Invalid version format: $VERSION"
+            echo "::error::Expected semantic versioning format: X.Y.Z or X.Y.Z-suffix"
+            echo "::error::Examples: 1.0.0, 1.2.3, 2.0.0-beta.1"
+            exit 1
+          fi
+
+          echo "Version format is valid: $VERSION"
+
+      - name: Check if version/tag already exists
+        run: |
+          VERSION="${{ inputs.version }}"
+
+          # Check if tag already exists locally or remotely
+          if git tag -l | grep -qx "v${VERSION}" || git tag -l | grep -qx "${VERSION}"; then
+            echo "::error::Version tag already exists: v${VERSION} or ${VERSION}"
+            echo "::error::Please use a new version number"
+            exit 1
+          fi
+
+          echo "Version is unique: $VERSION"
+
+      - name: Validation summary
+        run: |
+          echo "### Validation Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Publish**: ${{ inputs.publish }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Format**: Valid semantic version" >> $GITHUB_STEP_SUMMARY
+          echo "- **Uniqueness**: No existing tag found" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # JOB 2: SECURITY SCAN - REPOSITORY
+  # Scans repository for IaC misconfigurations, secrets, and security issues
+  # Runs in parallel with build for efficiency
+  # ============================================================================
+  security-scan-repo:
+    name: Security Scan - Repository
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Run Trivy repository scan
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-repo-results.sarif'
+          severity: 'MEDIUM,HIGH,CRITICAL'
+          exit-code: '1'  # Fail on vulnerabilities
+          hide-progress: false
+          scanners: 'misconfig,secret'
+
+      - name: Repository scan summary
+        if: success()
+        run: |
+          echo "### Repository Security Scan Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Scanner**: Trivy config + secrets" >> $GITHUB_STEP_SUMMARY
+          echo "- **Severity Threshold**: MEDIUM+" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: No vulnerabilities detected" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # JOB 3: BUILD
+  # Compiles code, runs linting, creates JAR artifacts with version override
+  # ============================================================================
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    needs: validate
+
+    outputs:
+      version: ${{ inputs.version }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: false  # Build job writes to cache
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x ./gradlew
+
+      - name: Run Kotlin linting (ktlint)
+        run: ./gradlew ktlintCheck --no-daemon --stacktrace
+
+      - name: Build application (skip tests)
+        run: |
+          echo "Building with version override: ${{ inputs.version }}"
+          ./gradlew clean build -x test \
+            -Pversion=${{ inputs.version }} \
+            --no-daemon \
+            --stacktrace \
+            --warning-mode all
+
+      - name: Build shadow JAR (fat JAR)
+        run: |
+          ./gradlew shadowJar \
+            -Pversion=${{ inputs.version }} \
+            --no-daemon \
+            --stacktrace
+
+      - name: List build artifacts
+        run: |
+          echo "=== Files in build/libs/ ==="
+          ls -lh build/libs/
+          echo ""
+          echo "Expected version: ${{ inputs.version }}"
+          echo "### Build Artifacts:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ls -lh build/libs/ >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload main JAR
+        uses: actions/upload-artifact@v5
+        with:
+          name: main-jar
+          path: build/libs/*-${{ inputs.version }}.jar
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload shadow JAR
+        uses: actions/upload-artifact@v5
+        with:
+          name: shadow-jar
+          path: build/libs/*-${{ inputs.version }}-all.jar
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload build outputs for reuse
+        uses: actions/upload-artifact@v5
+        with:
+          name: build-outputs
+          path: |
+            build/classes/
+            build/resources/
+            build/libs/
+            build/kotlin/
+            .gradle/
+          retention-days: 1
+
+      - name: Build summary
+        run: |
+          echo "### Build Completed Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Java Version**: ${{ env.JAVA_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Kotlin Linting**: Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Artifacts**: Main JAR + Shadow JAR" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # JOB 4: TEST
+  # Runs unit tests with JaCoCo code coverage
+  # Sequential after build to catch integration issues
+  # ============================================================================
+  test:
+    name: Run Tests & Coverage
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: true  # Test job reads from cache
+
+      - name: Download build outputs
+        uses: actions/download-artifact@v6
+        with:
+          name: build-outputs
+          path: .
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x ./gradlew
+
+      - name: Run tests with JaCoCo coverage
+        run: |
+          ./gradlew test jacocoTestReport \
+            -Pversion=${{ inputs.version }} \
+            --no-daemon \
+            --stacktrace
+
+      - name: Upload test results
+        if: always()  # Upload even if tests fail
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-results
+          path: |
+            build/reports/tests/test/
+            build/test-results/test/
+          retention-days: 30
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: coverage-report
+          path: build/reports/jacoco/test/
+          retention-days: 30
+
+      - name: Test summary
+        if: success()
+        run: |
+          echo "### Tests Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Test Framework**: JUnit 5 + Kotlin Test" >> $GITHUB_STEP_SUMMARY
+          echo "- **Coverage Tool**: JaCoCo" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: All tests passed" >> $GITHUB_STEP_SUMMARY
+
+          # Count test results if available
+          if [ -d "build/test-results/test" ]; then
+            TEST_COUNT=$(find build/test-results/test -name "*.xml" | wc -l)
+            echo "- **Test Files**: $TEST_COUNT" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ============================================================================
+  # JOB 5: SECURITY SCAN - DEPENDENCIES
+  # Scans project dependencies for known vulnerabilities (CVEs)
+  # ============================================================================
+  security-scan-dependencies:
+    name: Security Scan - Dependencies
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Download main JAR
+        uses: actions/download-artifact@v6
+        with:
+          name: main-jar
+          path: artifacts/
+
+      - name: Download shadow JAR
+        uses: actions/download-artifact@v6
+        with:
+          name: shadow-jar
+          path: artifacts/
+
+      - name: List artifacts for scanning
+        run: |
+          echo "Artifacts to scan:"
+          ls -lh artifacts/
+
+      - name: Run Trivy filesystem scan on JARs
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: 'fs'
+          scan-ref: 'artifacts/'
+          format: 'sarif'
+          output: 'trivy-dependencies-results.sarif'
+          severity: 'MEDIUM,HIGH,CRITICAL'
+          exit-code: '1'  # Fail on vulnerabilities
+          scanners: 'vuln'
+
+      - name: Dependency scan summary
+        if: success()
+        run: |
+          echo "### Dependency Security Scan Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Scanner**: Trivy filesystem" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target**: Project dependencies" >> $GITHUB_STEP_SUMMARY
+          echo "- **Severity Threshold**: MEDIUM+" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: No vulnerable dependencies detected" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # JOB 6: SECURITY SCAN - ARTIFACTS
+  # Scans built JAR files for embedded vulnerabilities
+  # ============================================================================
+  security-scan-artifacts:
+    name: Security Scan - Artifacts
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download main JAR
+        uses: actions/download-artifact@v6
+        with:
+          name: main-jar
+          path: artifacts/
+
+      - name: Download shadow JAR
+        uses: actions/download-artifact@v6
+        with:
+          name: shadow-jar
+          path: artifacts/
+
+      - name: List artifacts for scanning
+        run: |
+          echo "Artifacts to scan:"
+          ls -lh artifacts/
+
+      - name: Run Trivy scan on main JAR
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: 'fs'
+          scan-ref: 'artifacts/'
+          format: 'sarif'
+          output: 'trivy-artifacts-results.sarif'
+          severity: 'MEDIUM,HIGH,CRITICAL'
+          exit-code: '1'  # Fail on vulnerabilities
+          scanners: 'vuln'
+
+      - name: Artifact scan summary
+        if: success()
+        run: |
+          echo "### Artifact Security Scan Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Scanner**: Trivy filesystem" >> $GITHUB_STEP_SUMMARY
+          echo "- **Targets**: Main JAR + Shadow JAR" >> $GITHUB_STEP_SUMMARY
+          echo "- **Severity Threshold**: MEDIUM+" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: No vulnerabilities in artifacts" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # JOB 7: CODEQL ANALYSIS
+  # Scans source code for security vulnerabilities
+  # Only runs when preparing to publish a release
+  # ============================================================================
+  codeql-scan:
+    name: CodeQL Security Analysis
+    runs-on: ubuntu-latest
+    needs: build
+    if: inputs.publish == true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: java
+          queries: security-only
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: true
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x ./gradlew
+
+      - name: Build for CodeQL analysis
+        run: |
+          ./gradlew clean build -x test \
+            -Pversion=${{ inputs.version }} \
+            --no-daemon \
+            --stacktrace
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "release-scan"
+          upload: false
+
+      - name: CodeQL scan summary
+        if: success()
+        run: |
+          echo "### CodeQL Security Scan Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Language**: Java/Kotlin" >> $GITHUB_STEP_SUMMARY
+          echo "- **Queries**: Security-only" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: No code vulnerabilities detected" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # JOB 8: PUBLISH
+  # Creates GitHub Release and attaches JAR artifacts
+  # Only runs if publish checkbox is enabled and all checks pass
+  # ============================================================================
+  publish:
+    name: Publish to GitHub Releases
+    runs-on: ubuntu-latest
+    needs: [test, security-scan-repo, security-scan-dependencies, security-scan-artifacts, codeql-scan]
+    if: inputs.publish == true
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Download main JAR
+        uses: actions/download-artifact@v6
+        with:
+          name: main-jar
+          path: release-artifacts/
+
+      - name: Download shadow JAR
+        uses: actions/download-artifact@v6
+        with:
+          name: shadow-jar
+          path: release-artifacts/
+
+      - name: List release artifacts
+        run: |
+          echo "Artifacts to publish:"
+          ls -lh release-artifacts/
+
+      - name: Generate release notes
+        id: release-notes
+        run: |
+          VERSION="${{ inputs.version }}"
+
+          # Get latest tag for comparison
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          cat > release-notes.md << EOF
+          ## Release v${VERSION}
+
+          ### Artifacts
+
+          This release includes:
+          - **Main JAR**: Standard library JAR (without dependencies)
+          - **Shadow JAR**: All-in-one fat JAR with embedded dependencies
+
+          ### Security
+
+          All artifacts have been scanned and verified:
+          - [PASS] Repository configuration scan passed
+          - [PASS] Dependency vulnerability scan passed
+          - [PASS] Artifact security scan passed
+          - [PASS] All tests passed with coverage
+
+          ### Installation
+
+          **Gradle (Kotlin DSL)**:
+          \`\`\`kotlin
+          repositories {
+              maven {
+                  url = uri("https://github.com/CDCgov/prime-fhir-converter/releases/download/v${VERSION}/")
+              }
+          }
+
+          dependencies {
+              implementation("gov.cdc.prime:prime-fhir-converter:${VERSION}")
+          }
+          \`\`\`
+
+          **Maven**:
+          \`\`\`xml
+          <dependency>
+              <groupId>gov.cdc.prime</groupId>
+              <artifactId>fhirconverter</artifactId>
+              <version>${VERSION}</version>
+          </dependency>
+          \`\`\`
+
+          Or download the JARs directly from the assets below.
+          EOF
+
+          if [ -n "$LATEST_TAG" ]; then
+            echo "" >> release-notes.md
+            echo "### Changes Since $LATEST_TAG" >> release-notes.md
+            echo "" >> release-notes.md
+            git log ${LATEST_TAG}..HEAD --pretty=format:"- %s (%h)" >> release-notes.md
+          fi
+
+          cat release-notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          name: Release v${{ inputs.version }}
+          body_path: release-notes.md
+          draft: false
+          prerelease: false
+          files: |
+            release-artifacts/*.jar
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_unmatched_files: true
+          generate_release_notes: false
+
+      - name: Publish summary
+        run: |
+          echo "### Release Published Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Artifacts**: 2 JARs attached" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[PASS] **All security scans passed**" >> $GITHUB_STEP_SUMMARY
+          echo "[PASS] **All tests passed**" >> $GITHUB_STEP_SUMMARY
+          echo "[PASS] **Build artifacts verified**" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # WORKFLOW SUMMARY
+  # This job always runs and provides final status
+  # ============================================================================
+  workflow-summary:
+    name: Workflow Summary
+    runs-on: ubuntu-latest
+    needs: [validate, build, test, security-scan-repo, security-scan-dependencies, security-scan-artifacts]
+    if: always()
+
+    steps:
+      - name: Generate workflow summary
+        run: |
+          echo "## Workflow Execution Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Validation | ${{ needs.validate.result == 'success' && '[PASS]' || '[FAIL]' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | ${{ needs.build.result == 'success' && '[PASS]' || '[FAIL]' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests | ${{ needs.test.result == 'success' && '[PASS]' || '[FAIL]' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Repo Security Scan | ${{ needs.security-scan-repo.result == 'success' && '[PASS]' || '[FAIL]' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dependency Scan | ${{ needs.security-scan-dependencies.result == 'success' && '[PASS]' || '[FAIL]' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Artifact Scan | ${{ needs.security-scan-artifacts.result == 'success' && '[PASS]' || '[FAIL]' }} |" >> $GITHUB_STEP_SUMMARY
+
+          # Add CodeQL scan status if it ran (only when publish=true)
+          if [ "${{ inputs.publish }}" == "true" ]; then
+            echo "| CodeQL Scan | ${{ needs.codeql-scan.result == 'success' && '[PASS]' || needs.codeql-scan.result == 'skipped' && '[SKIP]' || '[FAIL]' }} |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ inputs.publish }}" == "true" ]; then
+            echo "**Publish**: Enabled (conditional on all checks passing)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Publish**: Disabled" >> $GITHUB_STEP_SUMMARY
+          fi
