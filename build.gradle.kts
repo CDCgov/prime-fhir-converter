@@ -78,7 +78,7 @@ dependencies {
     api("ca.uhn.hapi:hapi-structures-v251:2.3")
     api("ca.uhn.hapi.fhir:hapi-fhir-structures-r4:6.2.5")
     implementation("ca.uhn.hapi.fhir:hapi-fhir-validation:6.2.5")
-    implementation("commons-io:commons-io:2.11.0")
+    implementation("commons-io:commons-io:2.21.0")
     api("com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonVersion")
     api("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonVersion")
     api("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
