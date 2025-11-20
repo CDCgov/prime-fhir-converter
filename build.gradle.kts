@@ -86,7 +86,7 @@ dependencies {
 
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
-    testImplementation("io.mockk:mockk:1.13.4")
+    testImplementation("io.mockk:mockk:1.14.6")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.2")
     testImplementation("com.willowtreeapps.assertk:assertk-jvm:0.25")
 }
