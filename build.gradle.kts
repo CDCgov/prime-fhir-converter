@@ -74,7 +74,7 @@ dependencies {
     implementation("org.apache.logging.log4j:log4j-api:[2.17.1,)")
     implementation("org.apache.logging.log4j:log4j-core:[2.17.1,)")
     api("org.apache.logging.log4j:log4j-api-kotlin:1.2.0")
-    implementation("com.googlecode.libphonenumber:libphonenumber:8.13.5")
+    implementation("com.googlecode.libphonenumber:libphonenumber:8.13.55")
     api("ca.uhn.hapi:hapi-structures-v251:2.3")
     api("ca.uhn.hapi.fhir:hapi-fhir-structures-r4:6.2.5")
     implementation("ca.uhn.hapi.fhir:hapi-fhir-validation:6.2.5")
