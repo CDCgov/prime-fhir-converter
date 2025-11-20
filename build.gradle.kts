@@ -66,7 +66,7 @@ publishing {
     }
 }
 
-val jacksonVersion = "2.14.1"
+val jacksonVersion = "2.20.1"
 dependencies {
     // Align versions of all Kotlin components
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
