@@ -3,7 +3,7 @@ version = project.findProperty("version") as String? ?: "0.1-SNAPSHOT"
 
 plugins {
     id("org.jetbrains.kotlin.jvm") version "1.8.10"
-    id("org.jlleitschuh.gradle.ktlint") version "11.3.1"
+    id("org.jlleitschuh.gradle.ktlint") version "11.6.1"
     id("com.github.johnrengelman.shadow") version "7.1.2"
     `java-library`
     `maven-publish`
