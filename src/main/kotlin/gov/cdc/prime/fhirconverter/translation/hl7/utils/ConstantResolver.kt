@@ -2,53 +2,105 @@ package gov.cdc.prime.fhirconverter.translation.hl7.utils
 
 import gov.cdc.prime.fhirconverter.translation.hl7.HL7ConversionException
 import gov.cdc.prime.fhirconverter.translation.hl7.SchemaException
+import gov.cdc.prime.fhirconverter.translation.hl7.config.ContextConfig
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.text.StringSubstitutor
 import org.apache.commons.text.lookup.StringLookup
 import org.apache.logging.log4j.kotlin.Logging
 import org.hl7.fhir.exceptions.PathEngineException
+import org.hl7.fhir.r4.fhirpath.FHIRPathEngine
+import org.hl7.fhir.r4.fhirpath.FHIRPathUtilityClasses
+import org.hl7.fhir.r4.fhirpath.TypeDetails
 import org.hl7.fhir.r4.model.Base
 import org.hl7.fhir.r4.model.Bundle
 import org.hl7.fhir.r4.model.IntegerType
 import org.hl7.fhir.r4.model.StringType
-import org.hl7.fhir.r4.model.TypeDetails
 import org.hl7.fhir.r4.model.ValueSet
-import org.hl7.fhir.r4.utils.FHIRPathEngine
-import org.hl7.fhir.r4.utils.FHIRPathEngine.IEvaluationContext.FunctionDetails
+import java.lang.IllegalArgumentException
+import java.lang.NumberFormatException
 
 /**
- * Context used for resolving [constants].
+ * Context used for resolving [constants] and custom FHIR functions. The class is for us to add our customer function
+ * [customFhirFunctions], customer [config] object for us to pass any object to our custom translation function
+ * [translationFunctions] (eg, handler function to do custom translation).
  */
 data class CustomContext(
     val bundle: Bundle,
     var focusResource: Base,
-    val constants: MutableMap<String, String> = mutableMapOf()
+    val constants: MutableMap<String, String> = mutableMapOf(),
+    val customFhirFunctions: FhirPathFunctions? = null,
+    val config: ContextConfig? = null,
+    val translationFunctions: TranslationFunctions? = Hl7TranslationFunctions(),
 ) {
     companion object {
+        val appendToIndexKey = "appendToIndex"
+        private val reservedConstantNames =
+            listOf(
+                "loinc",
+                "ucum",
+                "resource",
+                "rootResource",
+                "context",
+                "us-zip",
+                "`vs-",
+                "`cs-",
+                "`ext",
+                appendToIndexKey
+            )
+
         /**
          * Add [constants] to a context.
-         * @return a new context with the [constants] added or the existing context of no new constants are specified
+         * @return a new context with the [constants] added or the existing context if no new constants are specified
          */
-        fun addConstants(constants: Map<String, String>, previousContext: CustomContext): CustomContext {
-            return if (constants.isEmpty()) previousContext
-            else {
-                val newContext = CustomContext(
-                    previousContext.bundle,
-                    previousContext.focusResource,
-                    previousContext.constants.toMap().toMutableMap() // This makes a copy of the map
+        fun addConstants(
+            constants: Map<String, String>,
+            previousContext: CustomContext,
+        ): CustomContext = addConstants(constants, previousContext, true)
+
+        private fun addConstants(
+            constants: Map<String, String>,
+            previousContext: CustomContext,
+            checkReservedNames: Boolean,
+        ): CustomContext = if (constants.isEmpty()) {
+            previousContext
+        } else {
+            if (checkReservedNames && constants.keys.any { reservedConstantNames.contains(it) }) {
+                throw SchemaException(
+                    """Constants contained reserved name,
+                        reserved constants are: $reservedConstantNames
+                    """.trimMargin()
                 )
-                constants.forEach { newContext.constants[it.key] = it.value }
-                newContext
             }
+            val newContext = CustomContext(
+                previousContext.bundle,
+                previousContext.focusResource,
+                previousContext.constants.toMap().toMutableMap(), // This makes a copy of the map
+                previousContext.customFhirFunctions,
+                previousContext.config,
+                previousContext.translationFunctions
+            )
+            constants.forEach { newContext.constants[it.key] = it.value }
+            newContext
         }
 
         /**
          * Add constant with [key] and [value] to a context.
          * @return a new context with the constant added or the existing context of no new constant is specified
          */
-        fun addConstant(key: String, value: String, previousContext: CustomContext): CustomContext {
-            return addConstants(mapOf(key to value), previousContext)
-        }
+        fun addConstant(
+            key: String,
+            value: String,
+            previousContext: CustomContext,
+        ): CustomContext = addConstants(mapOf(key to value), previousContext, true)
+
+        fun setAppendToIndex(index: Int, previousContext: CustomContext): CustomContext = addConstants(
+            mapOf(
+                appendToIndexKey to index.toString()
+            ),
+            previousContext, false
+        )
+
+        fun getAppendToIndex(context: CustomContext): Int? = context.constants[appendToIndexKey]?.toInt()
     }
 }
 
@@ -65,14 +117,17 @@ class ConstantSubstitutor {
      * Replace the constants in a given [inputText] using the [context].
      * @return the resolved string
      */
-    fun replace(inputText: String, context: CustomContext?): String {
-        return constantResolver.setVariableResolver(StringCustomResolver(context)).replace(inputText)
-    }
+    fun replace(
+        inputText: String,
+        context: CustomContext?,
+    ): String = constantResolver.setVariableResolver(StringCustomResolver(context)).replace(inputText)
 
     /**
      * Custom resolver for the [ConstantSubstitutor] that uses the [context] to resolve the constants.
      */
-    internal class StringCustomResolver(val context: CustomContext?) : StringLookup, Logging {
+    internal class StringCustomResolver(val context: CustomContext?) :
+        StringLookup,
+        Logging {
         override fun lookup(key: String?): String {
             require(!key.isNullOrBlank())
             when {
@@ -90,8 +145,16 @@ class ConstantSubstitutor {
 /**
  * Custom resolver for the FHIR path engine.
  */
-class FhirPathCustomResolver : FHIRPathEngine.IEvaluationContext, Logging {
-    override fun resolveConstant(appContext: Any?, name: String?, beforeContext: Boolean): List<Base>? {
+class FhirPathCustomResolver(private val customFhirFunctions: FhirPathFunctions? = null) :
+    FHIRPathEngine.IEvaluationContext,
+    Logging {
+    override fun resolveConstant(
+        engine: FHIRPathEngine?,
+        appContext: Any?,
+        name: String?,
+        beforeContext: Boolean,
+        explicitConstant: Boolean,
+    ): List<Base> {
         // Name is always passed in from the FHIR path engine
         require(!name.isNullOrBlank())
 
@@ -130,63 +193,73 @@ class FhirPathCustomResolver : FHIRPathEngine.IEvaluationContext, Logging {
         }
 
         // Evaluate the constant before it is used.
-        val value = if (constantValue.isNullOrBlank()) null
-        else {
+        return if (constantValue.isNullOrBlank()) {
+            emptyList()
+        } else {
             val values = FhirPathUtils.evaluate(appContext, appContext.focusResource, appContext.bundle, constantValue)
             if (values.isEmpty()) {
-                null
-            } else if (values.size != 1) {
-                // TODO: Support multiple values with the updated function return type and remove our custom solution
-                throw SchemaException("Constant $name must resolve to one value, but had ${values.size}.")
+                emptyList()
             } else {
-                logger.trace("Evaluated FHIR Path constant $name to: ${values[0]}")
+                logger.trace("Evaluated FHIR Path constant $name to: $values")
                 // Convert string constants that are whole integers to Integer type to facilitate math operations
-                if (values[0] is StringType && StringUtils.isNumeric(values[0].primitiveValue())) {
-                    IntegerType(values[0].primitiveValue())
-                } else values[0]
+                values.map {
+                    if (it is StringType && StringUtils.isNumeric(it.primitiveValue())) {
+                        try {
+                            IntegerType(it.primitiveValue())
+                        } catch (e: IllegalArgumentException) {
+                            // fallback to string; see https://github.com/CDCgov/prime-reportstream/issues/12609
+                            if (e.cause !is NumberFormatException) throw e
+                            it
+                        }
+                    } else {
+                        it
+                    }
+                }
             }
         }
-        return if (value == null) null
-        else listOf(value)
     }
 
-    override fun resolveConstantType(appContext: Any?, name: String?): TypeDetails {
+    override fun resolveConstantType(
+        engine: FHIRPathEngine?,
+        appContext: Any?,
+        name: String?,
+        explicitConstant: Boolean,
+    ): TypeDetails = throw NotImplementedError("Not implemented")
+
+    override fun log(argument: String?, focus: MutableList<Base>?): Boolean =
         throw NotImplementedError("Not implemented")
-    }
 
-    override fun log(argument: String?, focus: MutableList<Base>?): Boolean {
-        throw NotImplementedError("Not implemented")
-    }
-
-    override fun resolveFunction(functionName: String?): FunctionDetails? {
-        return CustomFHIRFunctions.resolveFunction(functionName)
-    }
+    override fun resolveFunction(
+        engine: FHIRPathEngine?,
+        functionName: String?,
+    ): FHIRPathUtilityClasses.FunctionDetails? = CustomFHIRFunctions.resolveFunction(functionName, customFhirFunctions)
 
     override fun checkFunction(
+        engine: FHIRPathEngine?,
         appContext: Any?,
         functionName: String?,
-        parameters: MutableList<TypeDetails>?
-    ): TypeDetails {
-        throw NotImplementedError("Not implemented")
-    }
+        focus: TypeDetails?,
+        parameters: MutableList<TypeDetails>?,
+    ): TypeDetails = throw NotImplementedError("Not implemented")
 
     override fun executeFunction(
+        engine: FHIRPathEngine?,
         appContext: Any?,
         focus: MutableList<Base>?,
         functionName: String?,
-        parameters: MutableList<MutableList<Base>>?
+        parameters: MutableList<MutableList<Base>>?,
     ): MutableList<Base> {
         check(focus != null)
         return when {
-            CustomFHIRFunctions.resolveFunction(functionName) != null -> {
-                CustomFHIRFunctions.executeFunction(focus, functionName, parameters)
+            CustomFHIRFunctions.resolveFunction(functionName, customFhirFunctions) != null -> {
+                CustomFHIRFunctions.executeFunction(focus, functionName, parameters, customFhirFunctions)
             }
 
             else -> throw IllegalStateException("Tried to execute invalid FHIR Path function $functionName")
         }
     }
 
-    override fun resolveReference(appContext: Any?, url: String?): Base? {
+    override fun resolveReference(engine: FHIRPathEngine?, appContext: Any?, url: String?, refContext: Base?): Base? {
         // Name is always passed in from the FHIR path engine
         require(!url.isNullOrBlank())
 
@@ -196,11 +269,9 @@ class FhirPathCustomResolver : FHIRPathEngine.IEvaluationContext, Logging {
         }
     }
 
-    override fun conformsToProfile(appContext: Any?, item: Base?, url: String?): Boolean {
+    override fun conformsToProfile(engine: FHIRPathEngine?, appContext: Any?, item: Base?, url: String?): Boolean =
         throw NotImplementedError("Not implemented")
-    }
 
-    override fun resolveValueSet(appContext: Any?, url: String?): ValueSet {
+    override fun resolveValueSet(engine: FHIRPathEngine?, appContext: Any?, url: String?): ValueSet =
         throw NotImplementedError("Not implemented")
-    }
 }

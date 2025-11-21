@@ -1,37 +1,40 @@
 package gov.cdc.prime.fhirconverter.translation.hl7.schema
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import gov.cdc.prime.fhirconverter.translation.hl7.HL7ConversionException
 import gov.cdc.prime.fhirconverter.translation.hl7.SchemaException
+import gov.cdc.prime.fhirconverter.translation.hl7.schema.providers.SchemaServiceProvider // ear marked for RS only?
+import gov.cdc.prime.fhirconverter.translation.hl7.utils.JacksonMapperUtilities
 import org.apache.commons.io.FilenameUtils
 import org.apache.logging.log4j.kotlin.Logging
 import java.io.File
 import java.io.InputStream
+import java.net.URI
 
 /**
  * Read schema configuration.
  */
 object ConfigSchemaReader : Logging {
     /**
-     * Read a schema [schemaName] from a file given the root [folder].
+     * Read a schema [schemaName] of type [schemaClass] from a file given the root [folder].
+     * @property Original The type that this schema expects as input
+     * @property Converted The type that this schema will produce as output
+     * @property Schema Reference to this schema's type
+     * @property SchemaElement The type of the schema elements that make up the schema
      * @return the validated schema
      * @throws Exception if the schema is invalid
      */
-    fun fromFile(schemaName: String, folder: String? = null): ConfigSchema {
+    fun <
+        Original,
+        Converted,
+        Schema : ConfigSchema<Original, Converted, Schema, SchemaElement>,
+        SchemaElement : ConfigSchemaElement<Original, Converted, SchemaElement, Schema>,
+        > fromFile(
+        schemaName: String,
+        schemaClass: Class<out Schema>,
+        schemaServiceProviders: Map<String, SchemaServiceProvider>,
+    ): Schema {
         // Load a schema including any parent schemas.  Note that child schemas are loaded first and the parents last.
-        val schemaList = mutableListOf<ConfigSchema>()
-        schemaList.add(readSchemaTreeFromFile(schemaName, folder))
-        while (!schemaList.last().extends.isNullOrBlank()) {
-            // Make sure there are no circular dependencies
-            if (schemaList.any { FilenameUtils.getName(schemaName) == FilenameUtils.getName(schemaList.last().extends) }
-            ) {
-                throw SchemaException("Schema circular dependency found while loading schema $schemaName")
-            }
-            val depSchemaFolder = "$folder/${FilenameUtils.getPath(schemaList.last().extends)}"
-            val depSchemaName = FilenameUtils.getName(schemaList.last().extends)
-            schemaList.add(readSchemaTreeFromFile(depSchemaName, depSchemaFolder))
-        }
+        val schemaList = fromUri(URI(schemaName), schemaClass, schemaServiceProviders)
 
         // Now merge the parent with all the child schemas
         val mergedSchema = mergeSchemas(schemaList)
@@ -43,32 +46,140 @@ object ConfigSchemaReader : Logging {
     }
 
     /**
+     * Read a schema from a [URI] using the scheme to determine how to read the schema
+     * @property Original The type that this schema expects as input
+     * @property Converted The type that this schema will produce as output
+     * @property Schema Reference to this schema's type
+     * @property SchemaElement The type of the schema elements that make up the schema
+     */
+    private fun <
+        Original,
+        Converted,
+        Schema : ConfigSchema<Original, Converted, Schema, SchemaElement>,
+        SchemaElement : ConfigSchemaElement<Original, Converted, SchemaElement, Schema>,
+        > fromUri(
+        schemaUri: URI,
+        schemaClass: Class<out Schema>,
+        schemaServiceProviders: Map<String, SchemaServiceProvider>,
+    ): List<Schema> {
+        val schemaList = mutableListOf(
+            readSchemaTreeUri(
+                schemaUri, schemaClass = schemaClass, schemaServiceProviders = schemaServiceProviders
+            )
+        )
+        while (!schemaList.last().extends.isNullOrBlank()) {
+            // Make sure there are no circular dependencies
+            if (schemaList.any {
+                FilenameUtils.getName(schemaUri.path) == FilenameUtils.getName(schemaList.last().extends)
+            }
+            ) {
+                throw SchemaException("Schema circular dependency found while loading schema ${schemaUri.path}")
+            }
+            schemaList.add(
+                readSchemaTreeUri(
+                    URI(schemaList.last().extends!!),
+                    schemaClass = schemaClass,
+                    schemaServiceProviders = schemaServiceProviders
+                )
+            )
+        }
+
+        return schemaList
+    }
+
+    /**
      * Merge the parent and child schemas provided in the [schemaList].  Note that [schemaList] MUST be ordered
      * from the lowest child to parent.
+     *
+     * @property Original The type that this schema expects as input
+     * @property Converted The type that this schema will produce as output
+     * @property Schema Reference to this schema's type
+     * @property SchemaElement The type of the schema elements that make up the schema
      * @return a merged schema
      */
-    private fun mergeSchemas(schemaList: List<ConfigSchema>): ConfigSchema {
+    private fun <
+        Original,
+        Converted,
+        Schema : ConfigSchema<Original, Converted, Schema, SchemaElement>,
+        SchemaElement : ConfigSchemaElement<Original, Converted, SchemaElement, Schema>,
+        > mergeSchemas(
+        schemaList: List<Schema>,
+    ): Schema {
         val parentSchema = schemaList.last()
         for (i in (schemaList.size - 2) downTo 0) {
-            parentSchema.merge(schemaList[i])
+            val childSchema = schemaList[i]
+            parentSchema.override(childSchema)
         }
         return parentSchema
     }
 
     /**
-     * Read a complete schema tree from a file for [schemaName] in [folder].
+     * Reads a schema using the scheme to determine how to read it.  Currently supports:
+     * - azure
+     * - classpath
+     * - file system
+     *
+     * @property Original The type that this schema expects as input
+     * @property Converted The type that this schema will produce as output
+     * @property Schema Reference to this schema's type
+     * @property SchemaElement The type of the schema elements that make up the schema
+     */
+    internal fun <
+        Original,
+        Converted,
+        Schema : ConfigSchema<Original, Converted, Schema, SchemaElement>,
+        SchemaElement : ConfigSchemaElement<Original, Converted, SchemaElement, Schema>,
+        > readSchemaTreeUri(
+        schemaUri: URI,
+        ancestry: List<String> = listOf(),
+        schemaClass: Class<out Schema>,
+        schemaServiceProviders: Map<String, SchemaServiceProvider>,
+    ): Schema {
+        val schemaServiceProvider = schemaServiceProviders.get(schemaUri.scheme)
+        if (schemaServiceProvider == null) {
+            throw SchemaException("No schema service provider found for: ${schemaUri.scheme}")
+        }
+        val rawSchema =
+            readOneYamlSchema(schemaServiceProvider.getInputStream(schemaUri), schemaClass)
+        rawSchema.name = schemaUri.path
+
+        if (ancestry.contains(rawSchema.name)) {
+            throw HL7ConversionException("Circular reference detected for schema ${rawSchema.name}")
+        }
+        rawSchema.ancestry = ancestry + rawSchema.name!!
+
+        // Process any schema references
+        rawSchema.elements.filter { !it.schema.isNullOrBlank() }.forEach { element ->
+            element.schemaRef =
+                readSchemaTreeUri(URI(element.schema!!), rawSchema.ancestry, schemaClass, schemaServiceProviders)
+        }
+        return rawSchema
+    }
+
+    /**
+     * Read a complete schema tree of type [schemaClass] from a file for [schemaName] in [folder].
      * Note this is a recursive function used to walk through all the schemas to load.
+     * @property Original The type that this schema expects as input
+     * @property Converted The type that this schema will produce as output
+     * @property Schema Reference to this schema's type
+     * @property SchemaElement The type of the schema elements that make up the schema
      * @return the validated schema
      */
-    internal fun readSchemaTreeFromFile(
+    internal fun <
+        Original,
+        Converted,
+        Schema : ConfigSchema<Original, Converted, Schema, SchemaElement>,
+        SchemaElement : ConfigSchemaElement<Original, Converted, SchemaElement, Schema>,
+        > readSchemaTreeRelative(
         schemaName: String,
         folder: String? = null,
-        ancestry: List<String> = listOf()
-    ): ConfigSchema {
+        ancestry: List<String> = listOf(),
+        schemaClass: Class<out Schema>,
+    ): Schema {
         val file = File(folder, "$schemaName.yml")
-        if (!file.canRead()) throw Exception("Cannot read ${file.absolutePath}")
+        if (!file.canRead()) throw SchemaException("Cannot read ${file.absolutePath}")
         val rawSchema = try {
-            readOneYamlSchema(file.inputStream())
+            readOneYamlSchema(file.inputStream(), schemaClass)
         } catch (e: Exception) {
             val msg = "Error while reading schema configuration from file ${file.absolutePath}"
             logger.error(msg, e)
@@ -86,18 +197,29 @@ object ConfigSchemaReader : Logging {
         // Process any schema references
         val rootFolder = file.parent
         rawSchema.elements.filter { !it.schema.isNullOrBlank() }.forEach { element ->
-            element.schemaRef = readSchemaTreeFromFile(element.schema!!, rootFolder, rawSchema.ancestry)
+            element.schemaRef = readSchemaTreeRelative(element.schema!!, rootFolder, rawSchema.ancestry, schemaClass)
         }
         return rawSchema
     }
 
     /**
-     * Read one YAML formatted schema from the given [inputStream].
+     * Read one YAML formatted schema of type [schemaClass] from the given [inputStream].
+     * @property Original The type that this schema expects as input
+     * @property Converted The type that this schema will produce as output
+     * @property Schema Reference to this schema's type
+     * @property SchemaElement The type of the schema elements that make up the schema
      * @return the schema
      */
-    internal fun readOneYamlSchema(inputStream: InputStream): ConfigSchema {
-        val mapper = ObjectMapper(YAMLFactory())
-        val rawSchema = mapper.readValue(inputStream, ConfigSchema::class.java)
+    internal fun <
+        Original,
+        Converted,
+        Schema : ConfigSchema<Original, Converted, Schema, SchemaElement>,
+        SchemaElement : ConfigSchemaElement<Original, Converted, SchemaElement, Schema>,
+        > readOneYamlSchema(
+        inputStream: InputStream,
+        schemaClass: Class<out Schema>,
+    ): Schema {
+        val rawSchema = JacksonMapperUtilities.yamlMapper.readValue(inputStream, schemaClass)
         // Are there any null elements?  This may mean some unknown array value in the YAML
         if (rawSchema.elements.any { false }) {
             throw SchemaException("Invalid empty element found in schema. Check that all array items are elements.")

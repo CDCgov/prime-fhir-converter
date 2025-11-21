@@ -1,6 +1,7 @@
 package gov.cdc.prime.fhirconverter.translation.hl7.utils
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil
+import org.apache.logging.log4j.kotlin.Logging
 
 /**
  * Enumeration representing the different parts of a phone number.
@@ -9,13 +10,13 @@ enum class PhonePart {
     Country,
     AreaCode,
     Local,
-    Extension
+    Extension,
 }
 
 /**
  * A collection of methods for dealing with phone parts.
  */
-object PhoneUtilities {
+object PhoneUtilities : Logging {
 
     /**
      *  Parses the [cleanedValue] into a PhoneNumber and returns the [part] requested.
@@ -29,13 +30,16 @@ object PhoneUtilities {
             phoneNumberUtil.isPossibleNumber(cleanedValue, "US")
         ) {
             val phone = phoneNumberUtil.parse(cleanedValue, "US")
-
-            // pull out correct part of the number
-            return when (part) {
-                PhonePart.Country -> phone.countryCode.toString()
-                PhonePart.AreaCode -> phone.nationalNumber.toString().substring(0, 3)
-                PhonePart.Local -> phone.nationalNumber.toString().substring(3)
-                PhonePart.Extension -> phone.extension
+            return try {
+                when (part) {
+                    PhonePart.Country -> phone.countryCode.toString()
+                    PhonePart.AreaCode -> phone.nationalNumber.toString().substring(0, 3)
+                    PhonePart.Local -> phone.nationalNumber.toString().substring(3)
+                    PhonePart.Extension -> phone.extension
+                }
+            } catch (e: StringIndexOutOfBoundsException) {
+                logger.warn("Invalid phone number sent.")
+                null
             }
         }
         return null

@@ -1,6 +1,7 @@
 group = "gov.cdc.prime"
 version = "0.1"
 
+// gradlew wasn't working https://stackoverflow.com/questions/17668265/gradlew-permission-denied, might need to push to codebase?
 plugins {
     id("org.jetbrains.kotlin.jvm") version "1.8.10"
     id("org.jlleitschuh.gradle.ktlint") version "11.3.1"
@@ -11,20 +12,20 @@ plugins {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
     withSourcesJar()
 }
 val compileKotlin: org.jetbrains.kotlin.gradle.tasks.KotlinCompile by tasks
 val compileTestKotlin: org.jetbrains.kotlin.gradle.tasks.KotlinCompile by tasks
 compileKotlin.kotlinOptions {
-    jvmTarget = "11"
+    jvmTarget = "17"
     allWarningsAsErrors = true
     useK2 = false
 }
 
 compileTestKotlin.kotlinOptions {
-    jvmTarget = "11"
+    jvmTarget = "17"
     allWarningsAsErrors = true
 }
 
@@ -76,8 +77,9 @@ dependencies {
     api("org.apache.logging.log4j:log4j-api-kotlin:1.2.0")
     implementation("com.googlecode.libphonenumber:libphonenumber:8.13.5")
     api("ca.uhn.hapi:hapi-structures-v251:2.3")
-    api("ca.uhn.hapi.fhir:hapi-fhir-structures-r4:6.2.5")
-    implementation("ca.uhn.hapi.fhir:hapi-fhir-validation:6.2.5")
+    implementation("ca.uhn.hapi.fhir:hapi-fhir-structures-r4:8.0.0")
+    implementation("ca.uhn.hapi.fhir:hapi-fhir-caching-caffeine:8.0.0") // added to avoid "HAPI-2200: No Cache Service Providers found. Choose between hapi-fhir-caching-caffeine (Default) and hapi-fhir-caching-guava (Android)" caused in fhirpathutils
+    implementation("ca.uhn.hapi.fhir:hapi-fhir-validation:8.0.0") // bump not needed (currently debugging tests)
     implementation("commons-io:commons-io:2.11.0")
     api("com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonVersion")
     api("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonVersion")
@@ -88,5 +90,5 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
     testImplementation("io.mockk:mockk:1.13.4")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.2")
-    testImplementation("com.willowtreeapps.assertk:assertk-jvm:0.25")
+    testImplementation("com.willowtreeapps.assertk:assertk-jvm:0.28.1") // bumping for isNotSameInstanceAs/isSameInstanceAs
 }
