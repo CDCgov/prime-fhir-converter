@@ -1,4 +1,5 @@
 hl7Class: ca.uhn.hl7v2.model.v251.message.ORU_R01
+extends: 'classpath:/schema/schema-read-test-07/ORU_R01.yml'
 elements:
   - name: patient-last-name
     condition: true
