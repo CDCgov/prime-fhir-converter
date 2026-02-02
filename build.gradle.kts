@@ -16,6 +16,11 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
     withSourcesJar()
 }
+
+jacoco {
+    toolVersion = "0.8.12"
+}
+
 val compileKotlin: org.jetbrains.kotlin.gradle.tasks.KotlinCompile by tasks
 val compileTestKotlin: org.jetbrains.kotlin.gradle.tasks.KotlinCompile by tasks
 compileKotlin.kotlinOptions {

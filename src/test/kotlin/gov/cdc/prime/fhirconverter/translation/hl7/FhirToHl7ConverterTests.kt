@@ -13,12 +13,9 @@ import assertk.assertions.isTrue
 import ca.uhn.hl7v2.HL7Exception
 import ca.uhn.hl7v2.model.Message
 import ca.uhn.hl7v2.util.Terser
-import gov.cdc.prime.fhirconverter.translation.hl7.schema.ConfigSchemaReader
 import gov.cdc.prime.fhirconverter.translation.hl7.schema.ConfigSchemaReader.fromFile
 import gov.cdc.prime.fhirconverter.translation.hl7.schema.converter.ConverterSchemaElement
 import gov.cdc.prime.fhirconverter.translation.hl7.schema.converter.HL7ConverterSchema
-import gov.cdc.prime.fhirconverter.translation.hl7.schema.fhirTransform.FhirTransformSchema
-import gov.cdc.prime.fhirconverter.translation.hl7.schema.fhirTransform.FhirTransformSchemaElement
 import gov.cdc.prime.fhirconverter.translation.hl7.utils.CustomContext
 import gov.cdc.prime.fhirconverter.translation.hl7.utils.helpers.SchemaReferenceResolverHelper
 import io.mockk.clearAllMocks
