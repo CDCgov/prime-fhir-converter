@@ -8,12 +8,11 @@ import gov.cdc.prime.fhirconverter.translation.hl7.schema.providers.SchemaServic
 
 object SchemaReferenceResolverHelper {
 
-    fun <T> retrieveHl7SchemaReference(schema: String, clazz: Class<T>? = null): HL7ConverterSchema =
+    fun retrieveHl7SchemaReference(schema: String): HL7ConverterSchema =
         ConfigSchemaReader.fromFile(
             schema,
             HL7ConverterSchema::class.java,
-            getSchemaServiceProviders(),
-            clazz
+            getSchemaServiceProviders()
         )
 
     fun getSchemaServiceProviders():

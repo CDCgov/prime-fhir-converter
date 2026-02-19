@@ -431,7 +431,7 @@ class FhirToHl7ConverterTests {
 
         // Use a file based schema which will fail as we do not have enough data in the bundle
         val transformer = FhirToHl7Converter(
-            SchemaReferenceResolverHelper.retrieveHl7SchemaReference<Any?>(
+            SchemaReferenceResolverHelper.retrieveHl7SchemaReference(
                 "classpath:/schema/schema-read-test-01/ORU_R01.yml"
             ),
             warnings = mutableListOf(),
@@ -571,7 +571,7 @@ class FhirToHl7ConverterTests {
     @Nested
     inner class TestOverrides {
 
-        val baseSchema = fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any?>(
+        val baseSchema = fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement>(
             """
                     classpath:/fhirengine/translation/hl7/schema/schema-test-overrides/ORU_R01.yml
             """.trimIndent(),
@@ -579,7 +579,7 @@ class FhirToHl7ConverterTests {
             SchemaReferenceResolverHelper.getSchemaServiceProviders()
         )
 
-        val extendedSchema = fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any?>(
+        val extendedSchema = fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement>(
             """
                     classpath:/fhirengine/translation/hl7/schema/schema-test-overrides/ORU_R01_extended.yml
             """.trimIndent(),
@@ -587,7 +587,7 @@ class FhirToHl7ConverterTests {
             SchemaReferenceResolverHelper.getSchemaServiceProviders()
         )
 
-        val extendedSchemaOverridesSoftware = fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any?>(
+        val extendedSchemaOverridesSoftware = fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement>(
             """
                     classpath:/fhirengine/translation/hl7/schema/schema-test-overrides/ORU_R01_extended_overrides_software.yml
             """.trimIndent(),
@@ -595,13 +595,13 @@ class FhirToHl7ConverterTests {
             SchemaReferenceResolverHelper.getSchemaServiceProviders()
         )
 
-        val extendedSchemaOverridesXon = fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any?>(
+        val extendedSchemaOverridesXon = fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement>(
             "classpath:/fhirengine/translation/hl7/schema/schema-test-overrides/ORU_R01_extended_overrides_xon.yml",
             schemaClass = HL7ConverterSchema::class.java,
             SchemaReferenceResolverHelper.getSchemaServiceProviders()
         )
 
-        val extendedExtendedSchema = fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any?>(
+        val extendedExtendedSchema = fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement>(
             "classpath:/fhirengine/translation/hl7/schema/schema-test-overrides/ORU_R01_extended_extended.yml",
             schemaClass = HL7ConverterSchema::class.java,
             SchemaReferenceResolverHelper.getSchemaServiceProviders()

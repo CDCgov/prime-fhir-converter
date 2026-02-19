@@ -14,6 +14,8 @@ import java.net.URI
  * Read schema configuration.
  */
 object ConfigSchemaReader : Logging {
+    var subtypeClass: Class<*>? = null
+
     /**
      * Read a schema [schemaName] of type [schemaClass] from a file given the root [folder].
      * @property Original The type that this schema expects as input
@@ -27,15 +29,14 @@ object ConfigSchemaReader : Logging {
         Original,
         Converted,
         Schema : ConfigSchema<Original, Converted, Schema, SchemaElement>,
-        SchemaElement : ConfigSchemaElement<Original, Converted, SchemaElement, Schema>, T : Any?,
+        SchemaElement : ConfigSchemaElement<Original, Converted, SchemaElement, Schema>,
         > fromFile(
         schemaName: String,
         schemaClass: Class<out Schema>,
         schemaServiceProviders: Map<String, SchemaServiceProvider>,
-        clazz: Class<T>? = null,
     ): Schema {
         // Load a schema including any parent schemas.  Note that child schemas are loaded first and the parents last.
-        val schemaList = fromUri(URI(schemaName), schemaClass, schemaServiceProviders, clazz)
+        val schemaList = fromUri(URI(schemaName), schemaClass, schemaServiceProviders)
 
         // Now merge the parent with all the child schemas
         val mergedSchema = mergeSchemas(schemaList)
@@ -57,16 +58,15 @@ object ConfigSchemaReader : Logging {
         Original,
         Converted,
         Schema : ConfigSchema<Original, Converted, Schema, SchemaElement>,
-        SchemaElement : ConfigSchemaElement<Original, Converted, SchemaElement, Schema>, T : Any?
+        SchemaElement : ConfigSchemaElement<Original, Converted, SchemaElement, Schema>,
         > fromUri(
         schemaUri: URI,
         schemaClass: Class<out Schema>,
         schemaServiceProviders: Map<String, SchemaServiceProvider>,
-        clazz: Class<T>? = null
     ): List<Schema> {
         val schemaList = mutableListOf(
             readSchemaTreeUri(
-                schemaUri, schemaClass = schemaClass, schemaServiceProviders = schemaServiceProviders, clazz = clazz
+                schemaUri, schemaClass = schemaClass, schemaServiceProviders = schemaServiceProviders
             )
         )
         while (!schemaList.last().extends.isNullOrBlank()) {
@@ -81,8 +81,7 @@ object ConfigSchemaReader : Logging {
                 readSchemaTreeUri(
                     URI(schemaList.last().extends!!),
                     schemaClass = schemaClass,
-                    schemaServiceProviders = schemaServiceProviders,
-                    clazz = clazz
+                    schemaServiceProviders = schemaServiceProviders
                 )
             )
         }
@@ -131,20 +130,18 @@ object ConfigSchemaReader : Logging {
         Original,
         Converted,
         Schema : ConfigSchema<Original, Converted, Schema, SchemaElement>,
-        SchemaElement : ConfigSchemaElement<Original, Converted, SchemaElement, Schema>, T : Any?
+        SchemaElement : ConfigSchemaElement<Original, Converted, SchemaElement, Schema>,
         > readSchemaTreeUri(
         schemaUri: URI,
         ancestry: List<String> = listOf(),
         schemaClass: Class<out Schema>,
         schemaServiceProviders: Map<String, SchemaServiceProvider>,
-        clazz: Class<T>? = null
     ): Schema {
         val schemaServiceProvider = schemaServiceProviders.get(schemaUri.scheme)
         if (schemaServiceProvider == null) {
             throw SchemaException("No schema service provider found for: ${schemaUri.scheme}")
         }
-        val rawSchema =
-            readOneYamlSchema(schemaServiceProvider.getInputStream(schemaUri), schemaClass, clazz)
+        val rawSchema = readOneYamlSchema(schemaServiceProvider.getInputStream(schemaUri), schemaClass)
         rawSchema.name = schemaUri.path
 
         if (ancestry.contains(rawSchema.name)) {
@@ -155,7 +152,7 @@ object ConfigSchemaReader : Logging {
         // Process any schema references
         rawSchema.elements.filter { !it.schema.isNullOrBlank() }.forEach { element ->
             element.schemaRef =
-                readSchemaTreeUri(URI(element.schema!!), rawSchema.ancestry, schemaClass, schemaServiceProviders, clazz)
+                readSchemaTreeUri(URI(element.schema!!), rawSchema.ancestry, schemaClass, schemaServiceProviders)
         }
         return rawSchema
     }
@@ -173,18 +170,17 @@ object ConfigSchemaReader : Logging {
         Original,
         Converted,
         Schema : ConfigSchema<Original, Converted, Schema, SchemaElement>,
-        SchemaElement : ConfigSchemaElement<Original, Converted, SchemaElement, Schema>, T : Any?
+        SchemaElement : ConfigSchemaElement<Original, Converted, SchemaElement, Schema>,
         > readSchemaTreeRelative(
         schemaName: String,
         folder: String? = null,
         ancestry: List<String> = listOf(),
         schemaClass: Class<out Schema>,
-        clazz: Class<T>? = null
     ): Schema {
         val file = File(folder, "$schemaName.yml")
         if (!file.canRead()) throw SchemaException("Cannot read ${file.absolutePath}")
         val rawSchema = try {
-            readOneYamlSchema(file.inputStream(), schemaClass, clazz)
+            readOneYamlSchema(file.inputStream(), schemaClass)
         } catch (e: Exception) {
             val msg = "Error while reading schema configuration from file ${file.absolutePath}"
             logger.error(msg, e)
@@ -202,9 +198,7 @@ object ConfigSchemaReader : Logging {
         // Process any schema references
         val rootFolder = file.parent
         rawSchema.elements.filter { !it.schema.isNullOrBlank() }.forEach { element ->
-            element.schemaRef = readSchemaTreeRelative(
-                element.schema!!, rootFolder, rawSchema.ancestry, schemaClass, clazz
-            )
+            element.schemaRef = readSchemaTreeRelative(element.schema!!, rootFolder, rawSchema.ancestry, schemaClass)
         }
         return rawSchema
     }
@@ -221,14 +215,13 @@ object ConfigSchemaReader : Logging {
         Original,
         Converted,
         Schema : ConfigSchema<Original, Converted, Schema, SchemaElement>,
-        SchemaElement : ConfigSchemaElement<Original, Converted, SchemaElement, Schema>, T : Any?
+        SchemaElement : ConfigSchemaElement<Original, Converted, SchemaElement, Schema>
         > readOneYamlSchema(
         inputStream: InputStream,
         schemaClass: Class<out Schema>,
-        clazz: Class<T>? = null,
     ): Schema {
         val mapper = PrimeJacksonMapperUtilities.yamlMapper
-        if (clazz != null) { mapper.registerSubtypes(clazz) }
+        if (subtypeClass != null) { mapper.registerSubtypes(subtypeClass) }
         val rawSchema = mapper.readValue(inputStream, schemaClass)
 
         // Are there any null elements?  This may mean some unknown array value in the YAML

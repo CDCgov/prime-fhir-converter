@@ -8,14 +8,10 @@ import assertk.assertions.isNotEmpty
 import assertk.assertions.isNotNull
 import assertk.assertions.isTrue
 import assertk.assertions.messageContains
-import ca.uhn.hl7v2.model.Message
 import gov.cdc.prime.fhirconverter.translation.hl7.schema.ConfigSchemaReader.readOneYamlSchema
-import gov.cdc.prime.fhirconverter.translation.hl7.schema.converter.ConverterSchemaElement
 import gov.cdc.prime.fhirconverter.translation.hl7.schema.converter.HL7ConverterSchema
 import gov.cdc.prime.fhirconverter.translation.hl7.schema.fhirTransform.FhirTransformSchema
-import gov.cdc.prime.fhirconverter.translation.hl7.schema.fhirTransform.FhirTransformSchemaElement
 import gov.cdc.prime.fhirconverter.translation.hl7.utils.helpers.SchemaReferenceResolverHelper
-import org.hl7.fhir.r4.model.Bundle
 import java.io.File
 import kotlin.test.Test
 
@@ -35,13 +31,7 @@ class ConfigSchemaReaderTests {
               hl7Spec:
                 - .PID.1
         """.trimIndent()
-        val schema = readOneYamlSchema<
-            Bundle,
-            Message,
-            HL7ConverterSchema,
-            ConverterSchemaElement,
-            Any
-            >(yaml.byteInputStream(), HL7ConverterSchema::class.java)
+        val schema = readOneYamlSchema(yaml.byteInputStream(), HL7ConverterSchema::class.java)
         assertThat(schema.isValid()).isTrue()
         assertThat(schema.name).isEqualTo("ORU-R01-Base")
 
@@ -59,12 +49,7 @@ class ConfigSchemaReaderTests {
               required: true
               schema: ORU_R01/header.yml
         """.trimIndent()
-        assertFailure {
-            readOneYamlSchema<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any>(
-                yaml.byteInputStream(),
-                HL7ConverterSchema::class.java
-            )
-        }
+        assertFailure { readOneYamlSchema(yaml.byteInputStream(), HL7ConverterSchema::class.java) }
 
         // Badly formatted YAML - First condition has incorrect identation
         yaml = """
@@ -79,46 +64,28 @@ class ConfigSchemaReaderTests {
               required: true
               schema: ORU_R01/header.yml
         """.trimIndent()
-        assertFailure {
-            readOneYamlSchema<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any>(
-                yaml.byteInputStream(),
-                HL7ConverterSchema::class.java
-            )
-        }
+        assertFailure { readOneYamlSchema(yaml.byteInputStream(), HL7ConverterSchema::class.java) }
+
         yaml = """
             name ORU-R01-Base
         """.trimIndent()
-        assertFailure {
-            readOneYamlSchema<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any>(
-                yaml.byteInputStream(),
-                HL7ConverterSchema::class.java
-            )
-        }
+        assertFailure { readOneYamlSchema(yaml.byteInputStream(), HL7ConverterSchema::class.java) }
+
         yaml = """
             name: [ORU-R01-Base,other]
         """.trimIndent()
-        assertFailure {
-            readOneYamlSchema<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any>(
-                yaml.byteInputStream(),
-                HL7ConverterSchema::class.java
-            )
-        }
+        assertFailure { readOneYamlSchema(yaml.byteInputStream(), HL7ConverterSchema::class.java) }
 
         // Empty file
         yaml = ""
-        assertFailure {
-            readOneYamlSchema<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any>(
-                yaml.byteInputStream(),
-                HL7ConverterSchema::class.java
-            )
-        }
+        assertFailure { readOneYamlSchema(yaml.byteInputStream(), HL7ConverterSchema::class.java) }
     }
 
     @Test
     fun `test read converter vs fhir transform`() {
         // This is a valid fhir transform schema
         assertThat(
-            ConfigSchemaReader.fromFile<Bundle, Bundle, FhirTransformSchema, FhirTransformSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/schema/fhir-transforms/sample_schema.yml",
                 schemaClass = FhirTransformSchema::class.java,
                 SchemaReferenceResolverHelper.getSchemaServiceProviders()
@@ -127,7 +94,7 @@ class ConfigSchemaReaderTests {
 
         // This is an invalid hl7v2 schema
         assertFailure {
-            ConfigSchemaReader.fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/schema/fhir-transforms/sample_schema.yml",
                 schemaClass = HL7ConverterSchema::class.java,
                 SchemaReferenceResolverHelper.getSchemaServiceProviders()
@@ -136,7 +103,7 @@ class ConfigSchemaReaderTests {
 
         // This is a valid hl7v2 schema
         assertThat(
-            ConfigSchemaReader.fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/schema/schema-read-test-01/ORU_R01.yml",
                 schemaClass = HL7ConverterSchema::class.java,
                 SchemaReferenceResolverHelper.getSchemaServiceProviders()
@@ -145,7 +112,7 @@ class ConfigSchemaReaderTests {
 
         // This is an invalid fhir transform schema
         assertFailure {
-            ConfigSchemaReader.fromFile<Bundle, Bundle, FhirTransformSchema, FhirTransformSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/schema/schema-read-test-01/ORU_R01.yml",
                 schemaClass = FhirTransformSchema::class.java,
                 SchemaReferenceResolverHelper.getSchemaServiceProviders()
@@ -156,7 +123,7 @@ class ConfigSchemaReaderTests {
     @Test
     fun `test read from file`() {
         assertThat(
-            ConfigSchemaReader.fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/schema/schema-read-test-01/ORU_R01.yml",
                 schemaClass = HL7ConverterSchema::class.java,
                 SchemaReferenceResolverHelper.getSchemaServiceProviders()
@@ -164,7 +131,7 @@ class ConfigSchemaReaderTests {
         ).isTrue()
 
         assertFailure {
-            ConfigSchemaReader.fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/schema/schema-read-test-02/ORU_R01_incomplete.yml",
                 schemaClass = HL7ConverterSchema::class.java,
                 SchemaReferenceResolverHelper.getSchemaServiceProviders()
@@ -172,7 +139,7 @@ class ConfigSchemaReaderTests {
         }
 
         assertThat(
-            ConfigSchemaReader.fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/schema/schema-read-test-01/ORU_R01.yml",
                 schemaClass = HL7ConverterSchema::class.java,
                 SchemaReferenceResolverHelper.getSchemaServiceProviders()
@@ -180,7 +147,7 @@ class ConfigSchemaReaderTests {
         ).isTrue()
 
         assertFailure {
-            ConfigSchemaReader.fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/fhirengine/translation/hl7/schema/schema-read-test-02/ORU_R01_incomplete.yml",
                 schemaClass = HL7ConverterSchema::class.java,
                 SchemaReferenceResolverHelper.getSchemaServiceProviders()
@@ -191,16 +158,15 @@ class ConfigSchemaReaderTests {
     @Test // is this test duplicate now? todo
     fun `test read from file with extends`() {
         assertFailure {
-            ConfigSchemaReader.fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/schema/schema-read-test-06/ORU_R01_circular.yml",
                 schemaClass = HL7ConverterSchema::class.java,
                 schemaServiceProviders = SchemaReferenceResolverHelper.getSchemaServiceProviders()
             )
         }.messageContains("Schema circular dependency")
 
-        val schema = ConfigSchemaReader.fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any?>(
+        val schema = ConfigSchemaReader.fromFile(
             "classpath:/schema/schema-read-test-06/ORU_R01_extends.yml",
-
             schemaClass = HL7ConverterSchema::class.java,
             schemaServiceProviders = SchemaReferenceResolverHelper.getSchemaServiceProviders()
         )
@@ -214,7 +180,7 @@ class ConfigSchemaReaderTests {
     @Test
     fun `test read FHIR Transform from file`() {
         assertThat(
-            ConfigSchemaReader.fromFile<Bundle, Bundle, FhirTransformSchema, FhirTransformSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/schema/fhir-transforms/sample_schema.yml",
                 schemaClass = FhirTransformSchema::class.java,
                 schemaServiceProviders = SchemaReferenceResolverHelper.getSchemaServiceProviders()
@@ -222,7 +188,7 @@ class ConfigSchemaReaderTests {
         ).isTrue()
 
         assertFailure {
-            ConfigSchemaReader.fromFile<Bundle, Bundle, FhirTransformSchema, FhirTransformSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/schema/fhir-transforms/incomplete_schema.yml",
 
                 schemaClass = FhirTransformSchema::class.java,
@@ -232,7 +198,7 @@ class ConfigSchemaReaderTests {
         }
 
         assertThat(
-            ConfigSchemaReader.fromFile<Bundle, Bundle, FhirTransformSchema, FhirTransformSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/schema/fhir-transforms/sample_schema.yml",
                 schemaClass = FhirTransformSchema::class.java,
                 SchemaReferenceResolverHelper.getSchemaServiceProviders()
@@ -240,7 +206,7 @@ class ConfigSchemaReaderTests {
         ).isTrue()
 
         assertFailure {
-            ConfigSchemaReader.fromFile<Bundle, Bundle, FhirTransformSchema, FhirTransformSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/schema/fhir-transforms/invalid_value_set.yml",
                 schemaClass = FhirTransformSchema::class.java,
                 SchemaReferenceResolverHelper.getSchemaServiceProviders()
@@ -248,7 +214,7 @@ class ConfigSchemaReaderTests {
         }
 
         assertFailure {
-            ConfigSchemaReader.fromFile<Bundle, Bundle, FhirTransformSchema, FhirTransformSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/fhir_sender_transformsincomplete_schema.yml",
                 schemaClass = FhirTransformSchema::class.java,
                 SchemaReferenceResolverHelper.getSchemaServiceProviders()
@@ -256,7 +222,7 @@ class ConfigSchemaReaderTests {
         }
 
         assertFailure {
-            ConfigSchemaReader.fromFile<Bundle, Bundle, FhirTransformSchema, FhirTransformSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/schema/fhir-transforms/no_schema_nor_value.yml",
                 schemaClass = FhirTransformSchema::class.java,
                 SchemaReferenceResolverHelper.getSchemaServiceProviders()
@@ -267,7 +233,7 @@ class ConfigSchemaReaderTests {
     @Test
     fun `test read FHIR Transform from file with extends`() {
         assertFailure {
-            ConfigSchemaReader.fromFile<Bundle, Bundle, FhirTransformSchema, FhirTransformSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/schema/fhir-transforms/circular_schema.yml",
                 schemaClass = FhirTransformSchema::class.java,
                 SchemaReferenceResolverHelper.getSchemaServiceProviders()
@@ -275,7 +241,7 @@ class ConfigSchemaReaderTests {
         }.messageContains("Schema circular dependency")
 
         assertThat(
-            ConfigSchemaReader.fromFile<Bundle, Bundle, FhirTransformSchema, FhirTransformSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/schema/fhir-transforms/extends_schema.yml",
                 schemaClass = FhirTransformSchema::class.java,
                 SchemaReferenceResolverHelper.getSchemaServiceProviders()
@@ -286,7 +252,7 @@ class ConfigSchemaReaderTests {
     @Test
     fun `test extends schema with URI`() {
         assertThat(
-            ConfigSchemaReader.fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 "classpath:/schema/schema-read-test-07/ORU_R01.yml",
                 schemaClass = HL7ConverterSchema::class.java,
                 SchemaReferenceResolverHelper.getSchemaServiceProviders()
@@ -297,12 +263,7 @@ class ConfigSchemaReaderTests {
     @Test
     fun `test read extended schema from file`() {
         // This is a good schema
-        val schema = ConfigSchemaReader.readSchemaTreeRelative<
-            Bundle,
-            Message,
-            HL7ConverterSchema,
-            ConverterSchemaElement,
-            Any?>(
+        val schema = ConfigSchemaReader.readSchemaTreeRelative(
             "ORU_R01-extended",
             "src/test/resources/schema/schema-read-test-01",
             schemaClass = HL7ConverterSchema::class.java
@@ -330,12 +291,7 @@ class ConfigSchemaReaderTests {
     @Test
     fun `test simple circular reference exception when loading schema`() {
         assertFailure {
-            ConfigSchemaReader.readSchemaTreeRelative<
-                Bundle,
-                Message,
-                HL7ConverterSchema,
-                ConverterSchemaElement,
-                Any?>(
+            ConfigSchemaReader.readSchemaTreeRelative(
                 "ORU_R01",
                 "src/test/resources/schema/schema/schema-read-test-04",
                 schemaClass = HL7ConverterSchema::class.java
@@ -346,12 +302,7 @@ class ConfigSchemaReaderTests {
     @Test
     fun `test deep circular reference exception when loading schema`() {
         assertFailure {
-            ConfigSchemaReader.readSchemaTreeRelative<
-                Bundle,
-                Message,
-                HL7ConverterSchema,
-                ConverterSchemaElement,
-                Any?>(
+            ConfigSchemaReader.readSchemaTreeRelative(
                 "ORU_R01",
                 "src/test/resources/schema/schema/schema-read-test-05",
                 schemaClass = HL7ConverterSchema::class.java
@@ -366,7 +317,7 @@ class ConfigSchemaReaderTests {
             "ORU_R01.yml"
         )
         assertThat(
-            ConfigSchemaReader.readSchemaTreeUri<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any?>(
+            ConfigSchemaReader.readSchemaTreeUri(
                 file.toURI(),
                 schemaClass = HL7ConverterSchema::class.java,
                 schemaServiceProviders = SchemaReferenceResolverHelper.getSchemaServiceProviders()
@@ -381,7 +332,7 @@ class ConfigSchemaReaderTests {
             "ORU_R01_circular.yml"
         )
         assertFailure {
-            ConfigSchemaReader.fromFile<Bundle, Message, HL7ConverterSchema, ConverterSchemaElement, Any?>(
+            ConfigSchemaReader.fromFile(
                 file.toURI().toString(),
                 schemaClass = HL7ConverterSchema::class.java,
                 SchemaReferenceResolverHelper.getSchemaServiceProviders()
