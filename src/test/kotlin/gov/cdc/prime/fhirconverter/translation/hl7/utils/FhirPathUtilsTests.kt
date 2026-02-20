@@ -1,6 +1,5 @@
 package gov.cdc.prime.fhirconverter.translation.hl7.utils
 
-// import gov.cdc.prime.fhirconverter.translation.hl7.utils.custom // was trying to pull in a function from somewhere for something
 import assertk.all
 import assertk.assertFailure
 import assertk.assertThat
@@ -9,21 +8,30 @@ import assertk.assertions.isEmpty
 import assertk.assertions.isEqualTo
 import assertk.assertions.isFalse
 import assertk.assertions.isInstanceOf
+import assertk.assertions.isNotEmpty
 import assertk.assertions.isNotNull
 import assertk.assertions.isNull
 import assertk.assertions.isTrue
+import ca.uhn.hl7v2.model.v27.message.ORU_R01
+import ca.uhn.hl7v2.util.Terser
 import gov.cdc.prime.fhirconverter.translation.hl7.SchemaException
 import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkClass
 import io.mockk.spyk
 import io.mockk.verify
+import java.util.Date
 import org.apache.logging.log4j.kotlin.KotlinLogger
 import org.hl7.fhir.exceptions.PathEngineException
 import org.hl7.fhir.r4.fhirpath.FHIRLexer
 import org.hl7.fhir.r4.model.Bundle
+import org.hl7.fhir.r4.model.DateTimeType
 import org.hl7.fhir.r4.model.DateType
 import org.hl7.fhir.r4.model.DiagnosticReport
+import org.hl7.fhir.r4.model.Extension
+import org.hl7.fhir.r4.model.InstantType
+import org.hl7.fhir.r4.model.Observation
 import org.hl7.fhir.r4.model.ServiceRequest
 import org.hl7.fhir.r4.model.TimeType
 import org.junit.jupiter.api.BeforeEach
@@ -186,132 +194,70 @@ class FhirPathUtilsTests {
         }
     }
 
-    // todo make decisions on where these tests can live
-//    @Test
-//    fun `test evaluate logs error when zip code lookup fails`() {
-//        // Path that triggers the zip code lookup
-//        val path = "%resource.postalCode.getStateFromZipCode()"
-//
-//        // Bundle Setup
-//        val bundle = Bundle()
-//        val address = Address()
-//        val missingZipCode = "66666"
-//        address.postalCode = missingZipCode
-//        val patient = Patient()
-//        patient.address.add(address)
-//        val entry1 = Bundle.BundleEntryComponent()
-//        entry1.resource = patient
-//        bundle.addEntry(entry1)
-//
-//        // FhirPathUtils Mocking Setup
-//        val appContext = mockkClass(CustomContext::class)
-//        every { appContext.customFhirFunctions }.returns(CustomFhirPathFunctions())
-//        val fhirPathUtils = spyk(FhirPathUtils)
-//        val mockedLogger = mockk<KotlinLogger>()
-//        every { fhirPathUtils.logger } returns mockedLogger
-//        every { mockedLogger.error(any<String>()) } returns Unit
-//        every { mockedLogger.trace(any<String>()) } returns Unit
-//
-//        // CustomFhirPathFunctions Mocking Setup
-//        val testTable = Table.create(
-//            "zip-code-data",
-//            StringColumn.create("state_fips", "40", "48", "6"),
-//            StringColumn.create("state", "Oklahoma", "Texas", "California"),
-//            StringColumn.create("state_abbr", "OK", "TX", "CA"),
-//            StringColumn.create("zipcode", "73949", "73949", "92356"),
-//            StringColumn.create("county", "Texas", "Sherman", "San Bernardino"),
-//            StringColumn.create("city", "Texhoma", "", "Lucerne valley")
-//
-//        )
-//        val testLookupTable = LookupTable(name = "zip-code-data", table = testTable)
-//        mockkConstructor(Metadata::class)
-//        every { anyConstructed<Metadata>().findLookupTable("zip-code-data") } returns testLookupTable
-//        mockkObject(Metadata)
-//        every { Metadata.getInstance() } returns UnitTestUtils.simpleMetadata
-//
-//        // Act
-//        assertThat(fhirPathUtils.evaluate(appContext, address, bundle, path).first().isEmpty)
-//
-//        // Assert
-//        verify {
-//            mockedLogger.error(
-//                "getStateFromZipCode() lookup failed for zip code: $missingZipCode"
-//            )
-//        }
-//    }
-//
-//    @Test
-//    fun `test evaluateString`() {
-//        val a = ORU_R01()
-//        val terser = Terser(a)
-//        val bundle = Bundle()
-//
-//        val receiver = mockkClass(Receiver::class)
-//        val appContext = mockkClass(CustomContext::class)
-//        val config = UnitTestUtils.createConfig(
-//            useHighPrecisionHeaderDateTimeFormat = true,
-//            convertPositiveDateTimeOffsetToNegative = false
-//        )
-//
-//        every { appContext.constants.contains(any()) }.returns(false)
-//        every { appContext.customFhirFunctions }.returns(CustomFhirPathFunctions())
-//        every { appContext.translationFunctions }.returns(CustomTranslationFunctions())
-//        every { appContext.config }.returns(HL7TranslationConfig(config, receiver))
-//        every { receiver.dateTimeFormat }.returns(null)
-//        every { receiver.translation }.returns(config)
-//
-//        val observation = Observation()
-//        observation.effective = DateTimeType("2015-04-11T12:22:01-04:00")
-//        bundle.timestamp = Date()
-//        bundle.addEntry().resource = observation
-//
-//        // Test timestamp of java Date
-//        var path = "Bundle.timestamp"
-//        var result = FhirPathUtils.evaluateString(appContext, bundle, bundle, path)
-//        assertThat(result).isNotEmpty()
-//        assertThat(terser.set("MSH-7", result))
-//
-//        // Test DateTimeType
-//        path = "Bundle.entry.resource.effective"
-//        result = FhirPathUtils.evaluateString(appContext, bundle, bundle, path)
-//        assertThat(result).isNotEmpty()
-//        assertThat(terser.set("MSH-7", result))
-//
-//        // Test InstanceType (which boils down to a DateTimeType)
-//        observation.effective = InstantType("2015-04-11T12:22:01-04:00")
-//        path = "Bundle.entry.resource.effective"
-//        result = FhirPathUtils.evaluateString(appContext, bundle, bundle, path)
-//        assertThat(result).isNotEmpty()
-//        assertThat(terser.set("MSH-7", result))
-//
-//        val ext = Extension()
-//        ext.url = "http://example.com/extensions#someext"
-//        ext.setValue(DateType("2011-01-02"))
-//        observation.addExtension(ext)
-//        // Test DateType
-//        path = "Bundle.entry.resource.extension.value"
-//        result = FhirPathUtils.evaluateString(appContext, bundle, bundle, path)
-//        assertThat(result).isNotEmpty()
-//        assertThat(terser.set("MSH-7", result))
-//
-//        // Test TimeType
-//        ext.setValue(TimeType("13:04:05.098"))
-//        path = "Bundle.entry.resource.extension.value"
-//        result = FhirPathUtils.evaluateString(appContext, bundle, bundle, path)
-//        assertThat(result).isNotEmpty()
-//        // OBX-2 is one of the few HL7 fields that accepts a TM
-//        assertThat(terser.set("/PATIENT_RESULT/ORDER_OBSERVATION/OBSERVATION/OBX-2", result))
-//
-//        // Test regular string
-//        bundle.id = "super special id"
-//        path = "Bundle.id"
-//        result = FhirPathUtils.evaluateString(appContext, bundle, bundle, path)
-//        assertThat(result).isNotEmpty()
-//        assertThat(terser.set("MSH-10", result))
-//
-//        // Empty string
-//        assertThat(FhirPathUtils.evaluateString(appContext, bundle, bundle, "")).isEmpty()
-//    }
+
+    @Test
+    fun `test evaluateString`() {
+        val a = ORU_R01()
+        val terser = Terser(a)
+        val bundle = Bundle()
+
+        val observation = Observation()
+        observation.effective = DateTimeType("2015-04-11T12:22:01-04:00")
+        bundle.timestamp = Date()
+        bundle.addEntry().resource = observation
+
+        val appContext = mockkClass(CustomContext::class)
+        every { appContext.customFhirFunctions }.returns(null)
+        every { appContext.constants.contains(any()) }.returns(false)
+        every { appContext.config }.returns(null)
+
+        // Test timestamp of java Date
+        var path = "Bundle.timestamp"
+        var result = FhirPathUtils.evaluateString(appContext, bundle, bundle, path)
+        assertThat(result).isNotEmpty()
+        assertThat(terser.set("MSH-7", result))
+
+        // Test DateTimeType
+        path = "Bundle.entry.resource.effective"
+        result = FhirPathUtils.evaluateString(appContext, bundle, bundle, path)
+        assertThat(result).isNotEmpty()
+        assertThat(terser.set("MSH-7", result))
+
+        // Test InstanceType (which boils down to a DateTimeType)
+        observation.effective = InstantType("2015-04-11T12:22:01-04:00")
+        path = "Bundle.entry.resource.effective"
+        result = FhirPathUtils.evaluateString(appContext, bundle, bundle, path)
+        assertThat(result).isNotEmpty()
+        assertThat(terser.set("MSH-7", result))
+
+        val ext = Extension()
+        ext.url = "http://example.com/extensions#someext"
+        ext.setValue(DateType("2011-01-02"))
+        observation.addExtension(ext)
+        // Test DateType
+        path = "Bundle.entry.resource.extension.value"
+        result = FhirPathUtils.evaluateString(appContext, bundle, bundle, path)
+        assertThat(result).isNotEmpty()
+        assertThat(terser.set("MSH-7", result))
+
+        // Test TimeType
+        ext.setValue(TimeType("13:04:05.098"))
+        path = "Bundle.entry.resource.extension.value"
+        result = FhirPathUtils.evaluateString(appContext, bundle, bundle, path)
+        assertThat(result).isNotEmpty()
+        // OBX-2 is one of the few HL7 fields that accepts a TM
+        assertThat(terser.set("/PATIENT_RESULT/ORDER_OBSERVATION/OBSERVATION/OBX-2", result))
+
+        // Test regular string
+        bundle.id = "super special id"
+        path = "Bundle.id"
+        result = FhirPathUtils.evaluateString(appContext, bundle, bundle, path)
+        assertThat(result).isNotEmpty()
+        assertThat(terser.set("MSH-10", result))
+
+        // Empty string
+        assertThat(FhirPathUtils.evaluateString(appContext, bundle, bundle, "")).isEmpty()
+    }
 
     @Test
     fun `test convertTimeToHL7`() {

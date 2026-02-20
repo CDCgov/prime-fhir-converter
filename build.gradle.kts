@@ -1,7 +1,6 @@
 group = "gov.cdc.prime"
 version = project.findProperty("version") as String? ?: "0.1-SNAPSHOT"
 
-// gradlew wasn't working https://stackoverflow.com/questions/17668265/gradlew-permission-denied, might need to push to codebase?
 plugins {
     id("org.jetbrains.kotlin.jvm") version "1.8.10"
     id("org.jlleitschuh.gradle.ktlint") version "11.3.1"
@@ -83,12 +82,12 @@ dependencies {
     implementation("com.googlecode.libphonenumber:libphonenumber:8.13.5")
     api("ca.uhn.hapi:hapi-structures-v251:2.6.0")
 
-    implementation("ca.uhn.hapi:hapi-base:2.6.0") // maybe?
+    implementation("ca.uhn.hapi:hapi-base:2.6.0")
     implementation("ca.uhn.hapi:hapi-structures-v27:2.6.0")
-    implementation("ca.uhn.hapi.fhir:hapi-fhir-client:8.0.0") // maybe?
+    implementation("ca.uhn.hapi.fhir:hapi-fhir-client:8.0.0")
     implementation("ca.uhn.hapi.fhir:hapi-fhir-structures-r4:8.0.0")
-    implementation("ca.uhn.hapi.fhir:hapi-fhir-caching-caffeine:8.0.0") // added to avoid "HAPI-2200: No Cache Service Providers found. Choose between hapi-fhir-caching-caffeine (Default) and hapi-fhir-caching-guava (Android)" caused in fhirpathutils
-    implementation("ca.uhn.hapi.fhir:hapi-fhir-validation:8.0.0") // bump not needed (currently debugging tests)
+    implementation("ca.uhn.hapi.fhir:hapi-fhir-caching-caffeine:8.0.0")
+    implementation("ca.uhn.hapi.fhir:hapi-fhir-validation:8.0.0")
     implementation("ca.uhn.hapi.fhir:hapi-fhir-validation-resources-r4:8.0.0")
     implementation("commons-io:commons-io:2.11.0")
 
@@ -101,5 +100,5 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
     testImplementation("io.mockk:mockk:1.13.4")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.2")
-    testImplementation("com.willowtreeapps.assertk:assertk-jvm:0.28.1") // bumping for isNotSameInstanceAs/isSameInstanceAs
+    testImplementation("com.willowtreeapps.assertk:assertk-jvm:0.28.1")
 }
