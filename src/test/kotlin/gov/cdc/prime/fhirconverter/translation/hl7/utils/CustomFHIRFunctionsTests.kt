@@ -315,7 +315,6 @@ class CustomFHIRFunctionsTests {
         assertThat(parts.size).isEqualTo(3)
     }
 
-    // TODO BEGIN CHANGETIMEZONE() TESTS
     @Test
     fun `test changeTimezone`() {
         // need to choose place without daylight savings time so that the test is not brittle

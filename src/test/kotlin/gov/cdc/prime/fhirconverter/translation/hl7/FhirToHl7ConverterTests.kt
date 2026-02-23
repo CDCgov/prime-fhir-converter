@@ -28,14 +28,9 @@ import org.hl7.fhir.r4.model.Bundle
 import org.hl7.fhir.r4.model.Coding
 import org.hl7.fhir.r4.model.MessageHeader
 import org.hl7.fhir.r4.model.ServiceRequest
-import org.junit.experimental.runners.Enclosed
 import org.junit.jupiter.api.Nested
-import org.junit.runner.RunWith
 import kotlin.test.Test
 
-// TODO 1/28 none of these tests are being run?
-
-@RunWith(Enclosed::class)
 class FhirToHl7ConverterTests {
     @Test
     fun `test can evaluate`() {
