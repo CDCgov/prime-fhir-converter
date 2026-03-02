@@ -1,9 +1,16 @@
 package gov.cdc.prime.fhirconverter.translation.hl7.schema
 
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.KotlinFeature
+import com.fasterxml.jackson.module.kotlin.KotlinModule
 import gov.cdc.prime.fhirconverter.translation.hl7.HL7ConversionException
 import gov.cdc.prime.fhirconverter.translation.hl7.SchemaException
-import gov.cdc.prime.fhirconverter.translation.hl7.schema.providers.SchemaServiceProvider // ear marked for RS only?
-import gov.cdc.prime.fhirconverter.translation.hl7.utils.PrimeJacksonMapperUtilities
+import gov.cdc.prime.fhirconverter.translation.hl7.schema.providers.SchemaServiceProvider
 import org.apache.commons.io.FilenameUtils
 import org.apache.logging.log4j.kotlin.Logging
 import java.io.File
@@ -14,7 +21,9 @@ import java.net.URI
  * Read schema configuration.
  */
 object ConfigSchemaReader : Logging {
-    var subtypeClass: Class<*>? = null
+    fun addSubtypeClass (subtypeClass: Class<*>?) {
+        if (subtypeClass != null) { yamlMapper.registerSubtypes(subtypeClass) }
+    }
 
     /**
      * Read a schema [schemaName] of type [schemaClass] from a file given the root [folder].
@@ -220,14 +229,34 @@ object ConfigSchemaReader : Logging {
         inputStream: InputStream,
         schemaClass: Class<out Schema>,
     ): Schema {
-        val mapper = PrimeJacksonMapperUtilities.yamlMapper
-        if (subtypeClass != null) { mapper.registerSubtypes(subtypeClass) }
-        val rawSchema = mapper.readValue(inputStream, schemaClass)
+        val rawSchema = yamlMapper.readValue(inputStream, schemaClass)
 
         // Are there any null elements?  This may mean some unknown array value in the YAML
         if (rawSchema.elements.any { false }) {
             throw SchemaException("Invalid empty element found in schema. Check that all array items are elements.")
         }
         return rawSchema
+    }
+
+    /**
+     * Default YAML mapper
+     */
+    val yamlMapper: ObjectMapper by lazy {
+        val yamlFactory = YAMLFactory()
+            .disable(YAMLGenerator.Feature.USE_NATIVE_TYPE_ID) // omits type tags from output
+        val mapper = ObjectMapper(yamlFactory)
+            .registerModule(
+                KotlinModule.Builder()
+                    .withReflectionCacheSize(512)
+                    .configure(KotlinFeature.NullToEmptyCollection, false)
+                    .configure(KotlinFeature.NullToEmptyMap, false)
+                    .configure(KotlinFeature.NullIsSameAsDefault, false)
+                    .configure(KotlinFeature.StrictNullChecks, false)
+                    .build()
+            )
+            .registerModule(JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+            .enable(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS)
+        mapper
     }
 }
