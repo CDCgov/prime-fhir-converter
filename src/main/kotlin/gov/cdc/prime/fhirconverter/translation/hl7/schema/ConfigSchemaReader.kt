@@ -21,7 +21,23 @@ import java.net.URI
  * Read schema configuration.
  */
 object ConfigSchemaReader : Logging {
-    fun addSubtypeClass(subtypeClass: Class<*>) {
+    /**
+     * Optional method to register a new information provider for alternative sources such as a database. The class must
+     * inherit from ValueSetCollection in order to convert. This functionality is specifically for use with the valueSet
+     * element. See configuration.md for more details in how to use the valueSet element.
+     *
+     * @param subtypeClass Custom value sets for conversion. Must inherit from ValueSetCollection and return a valueSet
+     * to be processable.
+     *
+     * Example usage:
+     *   ConfigSchemaReader.addSubtypeClass(LookupTableValueSet::class.java)
+     *   ConfigSchemaReader.fromFile(
+     *       schema,
+     *       schemaClass = FhirTransformSchema::class.java,
+     *       getSchemaServiceProviders()
+     *   )
+     */
+    fun addValueSetClass(subtypeClass: Class<*>) {
         yamlMapper.registerSubtypes(subtypeClass)
     }
 
