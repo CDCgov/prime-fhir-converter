@@ -21,8 +21,8 @@ import java.net.URI
  * Read schema configuration.
  */
 object ConfigSchemaReader : Logging {
-    fun addSubtypeClass (subtypeClass: Class<*>?) {
-        if (subtypeClass != null) { yamlMapper.registerSubtypes(subtypeClass) }
+    fun addSubtypeClass(subtypeClass: Class<*>) {
+        yamlMapper.registerSubtypes(subtypeClass)
     }
 
     /**
