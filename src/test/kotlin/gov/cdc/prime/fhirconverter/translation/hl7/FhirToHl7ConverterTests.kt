@@ -399,12 +399,13 @@ class FhirToHl7ConverterTests {
 
         val pathWithValue = "Bundle.id"
 
-        var element = ConverterSchemaElement(
+        // Test Happy Path Schema
+        val element = ConverterSchemaElement(
             "name",
             value = listOf(pathWithValue),
             hl7Spec = listOf("MSH-11")
         )
-        var schema = HL7ConverterSchema(
+        val schema = HL7ConverterSchema(
             hl7Class = "ca.uhn.hl7v2.model.v251.message.ORU_R01",
             elements = mutableListOf(element)
         )
@@ -412,27 +413,17 @@ class FhirToHl7ConverterTests {
         assertThat(message.isEmpty).isFalse()
         assertThat(Terser(message).get(element.hl7Spec[0])).isEqualTo(bundle.id)
 
-        // Hit the sanity checks
-        element = ConverterSchemaElement(
-            "name",
-            value = listOf(pathWithValue),
-            hl7Spec = listOf("MSH-11")
-        )
-        schema = HL7ConverterSchema(elements = mutableListOf(element))
-
+        // Test Schema with no hl7Class
+        val noClassSchema = HL7ConverterSchema(elements = mutableListOf(element))
         assertFailure {
-            FhirToHl7Converter(schema, warnings = mutableListOf(), errors = mutableListOf()).process(bundle)
+            FhirToHl7Converter(noClassSchema, warnings = mutableListOf(), errors = mutableListOf()).process(bundle)
         }
 
-        // Use a file based schema which will fail as we do not have enough data in the bundle
-        val transformer = FhirToHl7Converter(
-            SchemaReferenceResolverHelper.retrieveHl7SchemaReference(
-                "classpath:/schema/schema-read-test-01/ORU_R01.yml"
-            ),
-            warnings = mutableListOf(),
-            errors = mutableListOf()
+        // Test Bundle that is missing elements required by schema
+        val schemaWithRequired = SchemaReferenceResolverHelper.retrieveHl7SchemaReference(
+            "classpath:/schema/schema-read-test-01/ORU_R01.yml"
         )
-
+        val transformer = FhirToHl7Converter(schemaWithRequired, warnings = mutableListOf(), errors = mutableListOf())
         transformer.process(bundle)
 
         assertThat(transformer.errors[0]).isEqualTo(
@@ -498,7 +489,6 @@ class FhirToHl7ConverterTests {
         assertThat(Terser(message).get("MSH-12")).isEqualTo("overrideVal")
     }
 
-    // TODO what is this and what is it relevant for?
     @Nested
     inner class TestOverrides {
 

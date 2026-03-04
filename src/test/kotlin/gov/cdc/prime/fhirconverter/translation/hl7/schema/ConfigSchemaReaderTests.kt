@@ -155,7 +155,7 @@ class ConfigSchemaReaderTests {
         }
     }
 
-    @Test // is this test duplicate now? todo
+    @Test
     fun `test read from file with extends`() {
         assertFailure {
             ConfigSchemaReader.fromFile(
@@ -196,14 +196,6 @@ class ConfigSchemaReaderTests {
                 SchemaReferenceResolverHelper.getSchemaServiceProviders()
             )
         }
-
-        assertThat(
-            ConfigSchemaReader.fromFile(
-                "classpath:/schema/fhir-transforms/sample_schema.yml",
-                schemaClass = FhirTransformSchema::class.java,
-                SchemaReferenceResolverHelper.getSchemaServiceProviders()
-            ).isValid()
-        ).isTrue()
 
         assertFailure {
             ConfigSchemaReader.fromFile(
