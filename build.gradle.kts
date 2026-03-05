@@ -11,20 +11,25 @@ plugins {
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
     withSourcesJar()
 }
+
+jacoco {
+    toolVersion = "0.8.12"
+}
+
 val compileKotlin: org.jetbrains.kotlin.gradle.tasks.KotlinCompile by tasks
 val compileTestKotlin: org.jetbrains.kotlin.gradle.tasks.KotlinCompile by tasks
 compileKotlin.kotlinOptions {
-    jvmTarget = "11"
+    jvmTarget = "17"
     allWarningsAsErrors = true
     useK2 = false
 }
 
 compileTestKotlin.kotlinOptions {
-    jvmTarget = "11"
+    jvmTarget = "17"
     allWarningsAsErrors = true
 }
 
@@ -75,10 +80,17 @@ dependencies {
     implementation("org.apache.logging.log4j:log4j-core:[2.17.1,)")
     api("org.apache.logging.log4j:log4j-api-kotlin:1.2.0")
     implementation("com.googlecode.libphonenumber:libphonenumber:8.13.5")
-    api("ca.uhn.hapi:hapi-structures-v251:2.3")
-    api("ca.uhn.hapi.fhir:hapi-fhir-structures-r4:6.2.5")
-    implementation("ca.uhn.hapi.fhir:hapi-fhir-validation:6.2.5")
+    api("ca.uhn.hapi:hapi-structures-v251:2.6.0")
+
+    implementation("ca.uhn.hapi:hapi-base:2.6.0")
+    implementation("ca.uhn.hapi:hapi-structures-v27:2.6.0")
+    implementation("ca.uhn.hapi.fhir:hapi-fhir-client:8.0.0")
+    implementation("ca.uhn.hapi.fhir:hapi-fhir-structures-r4:8.0.0")
+    implementation("ca.uhn.hapi.fhir:hapi-fhir-caching-caffeine:8.0.0")
+    implementation("ca.uhn.hapi.fhir:hapi-fhir-validation:8.0.0")
+    implementation("ca.uhn.hapi.fhir:hapi-fhir-validation-resources-r4:8.0.0")
     implementation("commons-io:commons-io:2.11.0")
+
     api("com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonVersion")
     api("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonVersion")
     api("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
@@ -88,5 +100,5 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
     testImplementation("io.mockk:mockk:1.13.4")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.2")
-    testImplementation("com.willowtreeapps.assertk:assertk-jvm:0.25")
+    testImplementation("com.willowtreeapps.assertk:assertk-jvm:0.28.1")
 }
