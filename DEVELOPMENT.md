@@ -1,20 +1,19 @@
 # PRIME FHIR Converter Development Guide
 
-This guide outlines the practical steps and overall process for converting FHIR resource to HL7v2 messages. It transforms FHIR resources into HL7v2 messages using the configuration schema to generate HL7v2 segment and field from FHIR resource elements .
+This guide outlines the practical steps and overall process for converting FHIR resources to HL7v2 messages. It transforms FHIR resources into HL7v2 messages using the configuration schema to generate HL7v2 segments and fields from FHIR resource elements .
 
-Implementation Steps include:
+Implementation steps include:
 
 * Create an issue so your work can be tracked, and you can get feedback and input. (See [CONTRIBUTING](https://github.com/CDCgov/prime-fhir-converter/blob/master/CONTRIBUTING.md))
-* What is it you're doing?
-  - 1 Adding the FHIR resource and maps to the HL7 field segment? Then:
+* What are you doing?
+  - 1 Adding the FHIR resources and mapping to the HL7 segments and fields? Then:
     * Review the official HL7 documentation for the target FHIR Resource.
-    * Modifying the configuration mapping.
+    * Modifying the configuration schema mapping.
     * Modify an existing test when add new feature
-  - 2 Adding a New Configuration to map a new Message Type? Then:
-    * Add the Configuration Template to support the new HL7v2 message map.
+  - 2 Adding a New Configuration schema to map a new Message Type? Then:
+    * Add the Configuration schema to support the new HL7v2 message map.
     * Test the new configuration schema mapping for the HL7v2 message segment field assertions.
-  - 3 Example of Unit Test to test the New Configuration Schema to Support a New HL7v2 Message T? Then
-    * Validate the New Message.
+  - 3 Example of Unit Test to test the New Configuration Schema to Support a New HL7v2 Message Type? Then
     * Example of a Unit Test Case.
     * Create a new message template
     * Suggestions for the new developer.
@@ -22,17 +21,17 @@ Implementation Steps include:
   * Make a PR and request review (See [CONTRIBUTING](https://github.com/CDCgov/prime-fhir-converter/blob/master/CONTRIBUTING.md))
   * Suggestions for new developers
 
-## 1. Adding FHIR resources and maps to an existing HL7 segment
+## 1. Adding FHIR resources and mapping to an existing HL7 segments and fields
 ### Review the Official FHIR (HL7 Documentation)
 
-The Official FHIR documentation, provided by the HL7 organization, provides complete documentation for FHIR resources and the corresponding HL7 v2 mappings. The best place to start is by reviewing the [HL7 FHIR Resource index](https://www.hl7.org/fhir/resourcelist.html).
+The Official HL7 FHIR documentation, provided by the HL7 organization, provides complete documentation for HL7 FHIR resources and the corresponding HL7v2 mappings. The best place to start is by reviewing the [HL7 FHIR Resource index](https://www.hl7.org/fhir/resourcelist.html).
 
-Each resource page includes field definitions (e.g., Resource Medication - Content) and HL7 v2 mappings (e.g., Resource Medication - Mapping). Review the documentation to determine which FHIR resource fields to include. The FHIR specification supports many resources in various fields, and only a subset is likely necessary for a specific use case.
+Each resource page includes field definitions (e.g., Resource [Medication - Content](https://www.hl7.org/fhir/medication.html)) and HL7v2 mappings (e.g., Resource [Medication - Mapping](https://www.hl7.org/fhir/medication-mappings.html)). Review the documentation to determine which FHIR resource fields to include. The FHIR specification supports many resources in various fields, and only a subset is likely necessary for a specific use case.
 
-Additionally, it is helpful to review the structures, groups, and segments of HL7 v2.6 messages to inspect the conversion results. A useful resource is Health Level Seven® Standard Version 2.6 - An Application Protocol for Electronic Data Exchange in Healthcare Environments at vico.org.
+Additionally, it is helpful to review the structures, groups, and segments of HL7 v2.6 messages to inspect the conversion results. A useful resource is [Health Level Seven® Standard Version 2.6 - An Application Protocol for Electronic Data Exchange in Healthcare Environments](https://www.vico.org/HL7_V2_6/HL7%20Messaging%20Version%202.6/V2_6_Index.html) at vico.org.
 
-### Modifying the configuration mapping
-Identify the FHIR resource associated with mapping to the fields in the HL7 segment. A good example is [src/main/resources/hl7_mapping/ORU_R01/base/patient.yml](https://github.com/CDCgov/prime-fhir-converter/blob/master/src/main/resources/hl7_mapping/ORU_R01/base/patient.yml), which maps the FHIR patient resource to the HL7 PID segment. The conversion is managed by a configuration that specifies which HL7v2 messages to generate and the values assigned to each HL7v2 field. For more details, please see the [CONFIGURATION](https://github.com/CDCgov/prime-fhir-converter/blob/master/docs/fhir-hl7v2-converter/configuration.md) page.  For base resources, please see the [RESOURCES](https://github.com/CDCgov/prime-fhir-converter/tree/master/src/main/resources/hl7_mapping/ORU_R01/base) page for ORU_R01 message type setting.
+### Modifying the configuration schema mapping
+Identify the FHIR resource elements that map to the segments and fields of the HL7v2 message. A good example is [src/main/resources/hl7_mapping/ORU_R01/base/patient.yml](https://github.com/CDCgov/prime-fhir-converter/blob/master/src/main/resources/hl7_mapping/ORU_R01/base/patient.yml), which maps the FHIR patient resource to the HL7 PID segment. The conversion is managed by a configuration schema that specifies which HL7v2 messages to generate and the values assigned to each HL7v2 field. For more details, please see the [CONFIGURATION](https://github.com/CDCgov/prime-fhir-converter/blob/master/docs/fhir-hl7v2-converter/configuration.md) page.  For base resources, please see the [RESOURCES](https://github.com/CDCgov/prime-fhir-converter/tree/master/src/main/resources/hl7_mapping/ORU_R01/base) page for ORU_R01 message type setting.
 
 ### Modify an existing test when add new feature
 
@@ -40,10 +39,10 @@ Modify an existing test in [src/test/kotlin/gov/cdc/prime/fhirconverter/translat
 ## 2. Adding a New Configuration Schema to generate a new Message Type from given FHIR resource.
 
 ### Add the Configuration Schema to support the new HL7v2 message mapping.
-To add a new configuration schema, a developer creates a file named after the message type (e.g., ADT_A01.yml) and reuses content from an existing configuration file.  The existing configuration is in [src/main/resources/hl7_mapping/ORU_R01](https://github.com/CDCgov/prime-fhir-converter/tree/master/src/main/resources/hl7_mapping/ORU_R01/base). A good example is [src/main/resources/hl7_mapping/ORU_R01/ORU_R01-base.yml](https://github.com/CDCgov/prime-fhir-converter/blob/master/src/main/resources/hl7_mapping/ORU_R01/ORU_R01-base.yml), which processes the ORU_R01 message.  [CONFIGURATION](https://github.com/CDCgov/prime-fhir-converter/blob/master/docs/fhir-hl7v2-converter/configuration.md) explains how to configure the schema to support a new message type to map a FHIR resource to an HL7v2 field segment.  A developer should reuse an existing schema and only create new templates if needed.
+To add a new configuration schema, a developer creates a file named after the message type (e.g., ADT_A01.yml) and reuses content from an existing configuration file.  The existing configuration is in [src/main/resources/hl7_mapping/ORU_R01](https://github.com/CDCgov/prime-fhir-converter/tree/master/src/main/resources/hl7_mapping/ORU_R01). A good example is [src/main/resources/hl7_mapping/ORU_R01/ORU_R01-base.yml](https://github.com/CDCgov/prime-fhir-converter/blob/master/src/main/resources/hl7_mapping/ORU_R01/ORU_R01-base.yml), which processes the ORU_R01 message.  [CONFIGURATION](https://github.com/CDCgov/prime-fhir-converter/blob/master/docs/fhir-hl7v2-converter/configuration.md) explains how to configure the schema to support a new message type to map a FHIR resource to an HL7v2 field segment.  A developer should reuse an existing schema and only create new templates if needed.
 
 ### Test the new configuration schema mapping for the HL7v2 message segment field assertions
-Add a directory to the test resources schema directory, src/main/test/resources/schema, to test the new configuration schema. Next, a developer needs to add unit tests to verify that the new HL7v2 segment field is generated. As an example, see FhirToHl7ConverterTests.kt. Copy and create a new unit test if needed.
+Add a directory to the test resources schema directory, src/main/test/resources/schema, to test the new configuration schema. Next, a developer needs to add unit tests to verify that the new HL7v2 segment field is generated. As an example, see [FhirToHl7ConverterTests.kt](https://github.com/CDCgov/prime-fhir-converter/blob/master/src/test/kotlin/gov/cdc/prime/fhirconverter/translation/hl7/FhirToHl7ConverterTests.kt) copy and create a new unit test if needed.
 
 Unit Tests are vital to help check new function, and also ensure that an added function does not break when other later function is added.
 
@@ -147,10 +146,10 @@ class FhirToHl7ConverterTests {
 ```
 ### Suggestions for the new developer
 The learning curve can feel steep for a new developer. Suggestions for "ramping up":
-1.	Clone the PRIME-FHIR-CONVERTER project.
+1.	Clone the [PRIME-FHIR-CONVERTER](https://github.com/CDCgov/prime-fhir-converter) project.
 2.	Set up your environment for Kotlin development. You can use VS Code or IntelliJ IDE.
-3.	Run the command gradle clean build. This will confirm that your libraries are set up correctly and that your development environment is working.
-4.	Select a unit test and run it. This will confirm your unit test setup is working. For example, you could try: FhirToHl7ConverterTests.kt.
+3.	Run the command `gradle clean build`. This will confirm that your libraries are set up correctly and that your development environment is working.
+4.	Select a unit test and run it. This will confirm your unit test setup is working. For example, you could try: [FhirToHl7ConverterTests.kt](https://github.com/CDCgov/prime-fhir-converter/blob/master/src/test/kotlin/gov/cdc/prime/fhirconverter/translation/hl7/FhirToHl7ConverterTests.kt).
 5.	Set the IDE Project Setting to OpenJDK 11.
 6.	View the HL7v2 message created from the conversion in the test. The easiest way to do this is to put a breakpoint immediately after the command val message = FhirToHl7Converter(…).process(bundle), which returns an HL7v2 message.
 7.	Use the debugger to step through the asserts of the test. View the associated schema elements with the generated HL7 message segment.
