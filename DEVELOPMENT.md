@@ -6,14 +6,14 @@ Implementation steps include:
 
 * Create an issue so your work can be tracked, and you can get feedback and input. (See [CONTRIBUTING](https://github.com/CDCgov/prime-fhir-converter/blob/master/CONTRIBUTING.md))
 * What are you doing?
-  - 1 Adding the FHIR resources and mapping to the HL7 segments and fields? Then:
+  1. Adding the FHIR resources and mapping to the HL7 segments and fields? Then:
     * Review the official HL7 documentation for the target FHIR Resource.
     * Modifying the configuration schema mapping.
     * Modify an existing test when add new feature
-  - 2 Adding a New Configuration schema to map a new Message Type? Then:
+  2. Adding a New Configuration schema to map a new Message Type? Then:
     * Add the Configuration schema to support the new HL7v2 message map.
     * Test the new configuration schema mapping for the HL7v2 message segment field assertions.
-  - 3 Example of Unit Test to test the New Configuration Schema to Support a New HL7v2 Message Type? Then
+  3. Example of Unit Test to test the New Configuration Schema to Support a New HL7v2 Message Type? Then
     * Example of a Unit Test Case.
     * Create a new message template
     * Suggestions for the new developer.
@@ -28,7 +28,6 @@ The Official HL7 FHIR documentation, provided by the HL7 organization, provides 
 
 Each resource page includes field definitions (e.g., Resource [Medication - Content](https://www.hl7.org/fhir/medication.html)) and HL7v2 mappings (e.g., Resource [Medication - Mapping](https://www.hl7.org/fhir/medication-mappings.html)). Review the documentation to determine which FHIR resource fields to include. The FHIR specification supports many resources in various fields, and only a subset is likely necessary for a specific use case.
 
-Additionally, it is helpful to review the structures, groups, and segments of HL7 v2.6 messages to inspect the conversion results. A useful resource is [Health Level Seven® Standard Version 2.6 - An Application Protocol for Electronic Data Exchange in Healthcare Environments](https://www.vico.org/HL7_V2_6/HL7%20Messaging%20Version%202.6/V2_6_Index.html) at vico.org.
 
 ### Modifying the configuration schema mapping
 Identify the FHIR resource elements that map to the segments and fields of the HL7v2 message. A good example is [src/main/resources/hl7_mapping/ORU_R01/base/patient.yml](https://github.com/CDCgov/prime-fhir-converter/blob/master/src/main/resources/hl7_mapping/ORU_R01/base/patient.yml), which maps the FHIR patient resource to the HL7 PID segment. The conversion is managed by a configuration schema that specifies which HL7v2 messages to generate and the values assigned to each HL7v2 field. For more details, please see the [CONFIGURATION](https://github.com/CDCgov/prime-fhir-converter/blob/master/docs/fhir-hl7v2-converter/configuration.md) page.  For base resources, please see the [RESOURCES](https://github.com/CDCgov/prime-fhir-converter/tree/master/src/main/resources/hl7_mapping/ORU_R01/base) page for ORU_R01 message type setting.
