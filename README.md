@@ -58,7 +58,7 @@ String bundleText = Files.readString(Path.of("sample_fhir.json"));
 Bundle bundle = bundleParser.parseResource(Bundle.class, bundleText);
 
 // Convert it to HL7 v2 - Note we do not specify the YML extension as part of the schema name
-FhirToHl7Converter converter = new FhirToHl7Converter("src/main/resources/hl7_mapping/ORU_R01/ORU_R01-base", false, null);      
+FhirToHl7Converter converter = new FhirToHl7Converter("src/main/resources/metadata/hl7_mapping/ORU_R01/ORU_R01-base", false, null);      
 Message hl7Message = converter.convert(bundle);
 
 // Print out the HL7 v2 message using the HAPI HL7 v2 library
@@ -74,7 +74,7 @@ val bundleText = File("sample_fhir.json").readText()
 val bundle = bundleParser.parseResource(Bundle::class.java, bundleText)
 
 // Convert it to HL7 v2 - Note we do not specify the YML extension as part of the schema name
-val converter = FhirToHl7Converter("src/main/resources/hl7_mapping/ORU_R01/ORU_R01-base")
+val converter = FhirToHl7Converter("src/main/resources/metadata/hl7_mapping/ORU_R01/ORU_R01-base")
 val hl7Message = converter.convert(bundle)
 
 // Print out the HL7 v2 message using the HAPI HL7 v2 library
