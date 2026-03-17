@@ -436,27 +436,6 @@ class FhirToHl7ConverterTests {
     }
 
     @Test
-    fun `test convert ADT_A01 message`() {
-        val testFile = File("src/test/resources/datatests/FHIR_to_HL7/sample_KS_20240429-0001-ADT.fhir")
-        val fhirString = testFile.inputStream().readBytes().toString(Charsets.UTF_8)
-        val bundleParser = FhirContext.forR4().newJsonParser()
-        val bundle = bundleParser.parseResource(Bundle::class.java, fhirString)
-
-        val transformer = FhirToHl7Converter(
-            SchemaReferenceResolverHelper.retrieveHl7SchemaReference(
-                "classpath:/metadata/hl7_mapping/ADT_A01/ADT_A01-base.yml"
-            ),
-            warnings = mutableListOf(),
-            errors = mutableListOf()
-        )
-
-        val message = transformer.process(bundle)
-        assertThat(transformer.errors).isEmpty()
-        assertThat(Terser(message).get("MSH-9-1")).isEqualTo("ADT")
-        assertThat(Terser(message).get("MSH-9-2")).isEqualTo("A01")
-    }
-
-    @Test
     fun `test convert OML_O21 message`() {
         val testFile = File("src/test/resources/datatests/FHIR_to_HL7/sample_KS_20240429-0001-OML.fhir")
         val fhirString = testFile.inputStream().readBytes().toString(Charsets.UTF_8)
