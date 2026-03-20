@@ -1,0 +1,194 @@
+name: Auto Version on PR Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  version-and-release:
+    name: Version & Tag
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main with full history
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Get latest semver tag from main
+        id: latest
+        run: |
+          LATEST=$(git tag --sort=-v:refname \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | head -n1)
+
+          if [ -z "$LATEST" ]; then
+            echo "No existing semver tags found, starting from v0.0.0"
+            LATEST="v0.0.0"
+          fi
+
+          VERSION="${LATEST#v}"
+          {
+            echo "tag=$LATEST"
+            echo "version=$VERSION"
+            echo "major=$(echo "$VERSION" | cut -d. -f1)"
+            echo "minor=$(echo "$VERSION" | cut -d. -f2)"
+            echo "patch=$(echo "$VERSION" | cut -d. -f3)"
+          } >> "$GITHUB_OUTPUT"
+          echo "Latest tag on main: $LATEST"
+
+      - name: Check for version tag on PR commits
+        id: pr-tag
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # Fetch the PR head ref to ensure we have all PR commits and their tags
+          git fetch origin "$PR_HEAD_SHA" --tags 2>/dev/null || true
+
+          # Find the merge base between main and the PR head
+          MERGE_BASE=$(git merge-base "$PR_BASE_SHA" "$PR_HEAD_SHA" 2>/dev/null || echo "$PR_BASE_SHA")
+
+          echo "Merge base: $MERGE_BASE"
+          echo "PR head:    $PR_HEAD_SHA"
+
+          PR_TAG=""
+          for SHA in $(git log --format=%H "${MERGE_BASE}..${PR_HEAD_SHA}" 2>/dev/null); do
+            TAG=$(git tag --points-at "$SHA" 2>/dev/null \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$' \
+              | head -n1)
+            if [ -n "$TAG" ]; then
+              PR_TAG="$TAG"
+              echo "Found version tag on PR commit $SHA: $TAG"
+              break
+            fi
+          done
+
+          if [ -n "$PR_TAG" ]; then
+            echo "tag=$PR_TAG" >> "$GITHUB_OUTPUT"
+            echo "has_tag=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No version tag found on PR commits"
+            echo "tag=" >> "$GITHUB_OUTPUT"
+            echo "has_tag=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Calculate next version
+        id: next
+        run: |
+          if [ "${{ steps.pr-tag.outputs.has_tag }}" == "true" ]; then
+            NEXT="${{ steps.pr-tag.outputs.tag }}"
+            echo "Using version from PR tag: $NEXT"
+          else
+            MAJOR=${{ steps.latest.outputs.major }}
+            MINOR=${{ steps.latest.outputs.minor }}
+            PATCH=${{ steps.latest.outputs.patch }}
+            NEXT="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+            echo "Auto-bumping patch: ${{ steps.latest.outputs.tag }} -> $NEXT"
+          fi
+
+          echo "version=${NEXT#v}" >> "$GITHUB_OUTPUT"
+          echo "tag=$NEXT" >> "$GITHUB_OUTPUT"
+
+      - name: Update CHANGELOG (tagged PRs only)
+        if: steps.pr-tag.outputs.has_tag == 'true'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          NEXT_VERSION: ${{ steps.next.outputs.version }}
+        run: |
+          DATE=$(date +%Y-%m-%d)
+
+          # Build the changelog entry in a temp file (using env vars to avoid injection)
+          {
+            echo ""
+            echo "## [v${NEXT_VERSION}] - ${DATE}"
+            echo ""
+            echo "### ${PR_TITLE} ([#${PR_NUMBER}](${PR_URL}))"
+            echo ""
+            echo "${PR_BODY}"
+            echo ""
+          } > /tmp/changelog-entry.md
+
+          # Insert after the marker line in CHANGELOG.md
+          if [ -f CHANGELOG.md ]; then
+            # Find the marker line number
+            MARKER_LINE=$(grep -n '<!-- auto-managed' CHANGELOG.md | head -n1 | cut -d: -f1)
+            if [ -n "$MARKER_LINE" ]; then
+              # Split file at marker, insert entry between
+              head -n "$MARKER_LINE" CHANGELOG.md > /tmp/changelog-top.md
+              tail -n +"$((MARKER_LINE + 1))" CHANGELOG.md > /tmp/changelog-bottom.md
+              cat /tmp/changelog-top.md /tmp/changelog-entry.md /tmp/changelog-bottom.md > CHANGELOG.md
+            else
+              # No marker found, prepend after first line (the heading)
+              head -n 1 CHANGELOG.md > /tmp/changelog-top.md
+              tail -n +2 CHANGELOG.md > /tmp/changelog-bottom.md
+              cat /tmp/changelog-top.md /tmp/changelog-entry.md /tmp/changelog-bottom.md > CHANGELOG.md
+            fi
+          else
+            echo "::warning::CHANGELOG.md not found, creating it"
+            {
+              echo "# Changelog"
+              echo ""
+              echo "All notable changes to the PRIME FHIR Converter will be documented in this file."
+              echo ""
+              echo "The format is based on [Keep a Changelog](https://keepachangelog.com/)."
+              echo ""
+              echo "<!-- auto-managed: new entries are prepended below this line -->"
+              cat /tmp/changelog-entry.md
+            } > CHANGELOG.md
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs: update CHANGELOG for v${NEXT_VERSION}"
+          git push origin main
+
+      - name: Create and push version tag
+        run: |
+          TAG="${{ steps.next.outputs.tag }}"
+
+          # Check if tag already exists
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $TAG already exists"
+            exit 1
+          fi
+
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "Created and pushed tag: $TAG"
+
+      - name: Trigger build-and-publish workflow
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          VERSION="${{ steps.next.outputs.version }}"
+          echo "Triggering build-and-publish with version=${VERSION}, publish=true"
+          gh workflow run build-and-publish.yml \
+            -f version="${VERSION}" \
+            -f publish=true
+
+      - name: Summary
+        run: |
+          {
+            echo "### Auto Version Complete"
+            echo ""
+            echo "| Detail | Value |"
+            echo "|--------|-------|"
+            echo "| Previous tag | \`${{ steps.latest.outputs.tag }}\` |"
+            echo "| New tag | \`${{ steps.next.outputs.tag }}\` |"
+            echo "| PR had version tag | ${{ steps.pr-tag.outputs.has_tag }} |"
+            echo "| CHANGELOG updated | ${{ steps.pr-tag.outputs.has_tag }} |"
+            echo "| Build triggered | yes |"
+          } >> "$GITHUB_STEP_SUMMARY"
