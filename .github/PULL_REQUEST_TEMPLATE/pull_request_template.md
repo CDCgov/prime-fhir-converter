@@ -1,23 +1,26 @@
----
-name: Bug report
-about: Create a report to help us improve
-title: ''
-labels: ''
-assignees: ''
----
+## What does this PR do?
 
-**Please describe the bug this fixes or the feature this adds.**
+<!-- Brief description of the change. -->
 
-**Please describe how you tested this change. Include unit tests whenever possible.**
+## Breaking changes
 
-**Did you create or modify any associated documentation with this change? If documentation is not included in PR, please link to related documentation.**
+<!-- List any backwards-incompatible changes, or write "None". -->
 
-**If you added or modified HTML, did you check that it was 508 compliant?**
+None
 
-**Please tag any specific reviewers you would like to review this PR**
+## New features
 
-**Please include the following checks for open source contributing?**
+<!-- List any new capabilities added, or write "None". -->
 
-* [ ] Did you check for sensitive data, and remove any?
-* [ ] Are additional approvals needed for this change?
-* [ ] Are there potential vulnerabilities or licensing issues with any new dependencies introduced?
+None
+
+## How was this tested?
+
+<!-- Describe how you verified the change works. Include unit tests when possible. -->
+
+## Checklist
+
+- [ ] No sensitive data (keys, tokens, credentials) included
+- [ ] Tests added or updated (if applicable)
+- [ ] Documentation updated (if applicable)
+- [ ] No new vulnerabilities or licensing issues with new dependencies

@@ -36,3 +36,30 @@ to merge a pull request, it must:
    * Receive a +1 from a majority of team members associated with the request.
      If there is significant dissent between the team, a meeting will be held to
      discuss a plan of action for the pull request.
+
+## Versioning
+
+This project uses [semantic versioning](https://semver.org/) (MAJOR.MINOR.PATCH).
+
+**For most PRs**, you don't need to do anything special. When your PR is merged
+to `main`, the patch version bumps automatically (e.g., 1.2.3 -> 1.2.4).
+
+**For new features or breaking changes**, create a version tag on your branch
+before opening your PR:
+
+```bash
+git tag v1.3.0
+git push origin v1.3.0
+```
+
+When a version tag is present on your PR branch, the CI pipeline will:
+- Use that version instead of the default patch bump
+- Update the [CHANGELOG](CHANGELOG.md) automatically from your PR title and description
+
+To help keep the changelog useful, please include the following in your PR
+description when tagging a new version:
+- A brief summary of what changed
+- Any breaking changes (backwards-incompatible changes)
+- Any new features added
+
+That's it -- the pipeline handles the rest.
