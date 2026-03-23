@@ -2,15 +2,72 @@
 
 ## Overview
 
-This directory contains GitHub Actions workflows for automated building, testing, security scanning, and publishing of the FHIR Converter library.
+This directory contains GitHub Actions workflows for automated versioning, building, testing, security scanning, and publishing of the FHIR Converter library.
 
 ## Workflows
 
-### `build-and-publish.yml` - Main CI/CD Pipeline
+### `auto-version.yml` - Automatic Versioning on PR Merge
 
-**Purpose**: Complete DevSecOps pipeline for building, testing, securing, and optionally publishing versioned releases.
+**Purpose**: Automatically versions and tags every PR merged to `main`, then triggers the build-and-publish pipeline.
 
-**Trigger**: Manual (`workflow_dispatch`)
+**Trigger**: Automatic on PR merge to `main` (`pull_request: types: [closed]`)
+
+**Behavior**:
+
+- **Default (no tag on PR branch)**: Bumps the patch version of the latest semver tag on `main` (e.g., v1.2.3 -> v1.2.4)
+- **Custom version (tag on PR branch)**: If the PR author created a semver git tag on their branch (e.g., `v2.0.0`), that version is used instead
+- **CHANGELOG**: When a PR has a version tag, the CHANGELOG is updated with the PR title and body
+- **Build trigger**: After tagging, dispatches `build-and-publish.yml` with `publish=true`
+
+**How to use as a contributor**:
+
+For most PRs, nothing special is needed. The patch version bumps automatically.
+
+For new features or breaking changes, tag your branch before merging:
+
+```bash
+git tag v1.3.0
+git push origin v1.3.0
+```
+
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for details.
+
+**Secrets required**:
+
+- `RELEASE_TOKEN`: Classic PAT with `repo` + `workflow` scopes. Used to push to the protected `main` branch and trigger downstream workflows.
+
+**Flow**:
+
+```
+PR merged to main
+    |
+    v
+Get latest semver tag from main (e.g., v1.2.3)
+    |
+    v
+Check PR branch commits for version tags
+    |
+    +-- No tag found --> bump patch (v1.2.4)
+    |
+    +-- Tag found (e.g., v2.0.0) --> use that version
+        |
+        v
+        Update CHANGELOG.md with PR title + body
+    |
+    v
+Create and push new tag on main
+    |
+    v
+Trigger build-and-publish.yml (version=X.Y.Z, publish=true)
+```
+
+---
+
+### `build-and-publish.yml` - Build, Test, Scan & Publish Pipeline
+
+**Purpose**: Complete DevSecOps pipeline for building, testing, securing, and optionally publishing versioned releases. Typically triggered automatically by `auto-version.yml`, but can also be run manually.
+
+**Trigger**: Manual (`workflow_dispatch`) or dispatched by `auto-version.yml`
 
 **Inputs**:
 
@@ -21,48 +78,48 @@ This directory contains GitHub Actions workflows for automated building, testing
 
 ## Pipeline Architecture
 
-```ascii
-┌─────────────────────────────────────────────────────────────────┐
-│ Stage 0: Validation                                             │
-│ ✓ Validate semantic version format                              │
-│ ✓ Check for version uniqueness (no existing tags)               │
-└─────────────────────────────────────────────────────────────────┘
+```
++-------------------------------------------------------------------+
+| Stage 0: Validation                                               |
+| * Validate semantic version format                                |
+| * Check for version uniqueness (no existing tags)                 |
++-------------------------------------------------------------------+
                               |
-    ┌─────────────────────────┴────────────────────────┐
-    │                                                  │
-┌───┴────────────────────────┐    ┌────────────────────┴──────┐
-│ Stage 1a: Build            │    │ Stage 1b: Repo Security   │
-│ ✓ Kotlin linting (ktlint)  │    │ ✓ Trivy config scan       │
-│ ✓ Compile with version     │    │ ✓ Secrets detection       │
-│ ✓ Create Main JAR          │    │ ✓ IaC misconfiguration    │
-│ ✓ Create Shadow JAR        │    └───────────────────────────┘
-└─────────────┬──────────────┘
+    +-------------------------+----------------------------+
+    |                                                      |
++---+----------------------------+    +--------------------+------+
+| Stage 1a: Build                |    | Stage 1b: Repo Security   |
+| * Kotlin linting (ktlint)      |    | * Trivy config scan       |
+| * Compile with version          |    | * Secrets detection       |
+| * Create Main JAR               |    | * IaC misconfiguration    |
+| * Create Shadow JAR             |    +---------------------------+
++-------------+------------------+
               |
-    ┌─────────┴──────────────────────────────────┐
-    │                                            │
-┌───┴──────────────────┐  ┌──────────────────────┴────────┐
-│ Stage 2a: Test       │  │ Stage 2b: Security Scans      │
-│ ✓ JUnit 5 tests      │  │ ✓ Dependency CVE scan (Trivy) │
-│ ✓ JaCoCo coverage    │  │ ✓ Artifact JAR scan (Trivy)   │
-└──────────────────────┘  └───────────────────────────────┘
+    +---------+------------------------------------------+
+    |                                                    |
++---+----------------------+  +--------- ----------------+--------+
+| Stage 2a: Test           |  | Stage 2b: Security Scans          |
+| * JUnit 5 tests          |  | * Dependency CVE scan (Trivy)     |
+| * JaCoCo coverage        |  | * Artifact JAR scan (Trivy)       |
++---+----------------------+  +---------------------------------  -+
+    |
+    |  (if publish=true)
+    v
++-------------------------------------------------------------------+
+| Stage 2c: CodeQL SAST (release builds only)                       |
+| * Source code security analysis                                   |
+| * Security-only queries                                           |
++-------------+-----------------------------------------------------+
               |
-              |  (if publish=true)
-              v
-┌─────────────────────────────────────────────────────────────────┐
-│ Stage 2c: CodeQL SAST (release builds only)                     │
-│ ✓ Source code security analysis                                 │
-│ ✓ Security-only queries                                         │
-└─────────────┬───────────────────────────────────────────────────┘
-              |
-    ┌─────────┴──────────────────┐
-    │                            │
-┌───┴────────────────┐  ┌────────┴───────────┐
-│ Stage 3a: Publish  │  │ Stage 3b: Summary  │
-│ (if enabled)       │  │ ✓ Execution report │
-│ ✓ Create release   │  │ ✓ Stage statuses   │
-│ ✓ Attach JARs      │  └────────────────────┘
-│ ✓ Generate notes   │
-└────────────────────┘
+    +---------+--------------------------+
+    |                                    |
++---+--------------------+  +------------+-----------+
+| Stage 3a: Publish      |  | Stage 3b: Summary      |
+| (if enabled)           |  | * Execution report     |
+| * Create release       |  | * Stage statuses       |
+| * Attach JARs          |  +------------------------+
+| * Generate notes       |
++------------------------+
 
 Note: All security scan results remain private (workflow logs only)
 ```
@@ -385,6 +442,27 @@ git push origin :refs/tags/v1.0.0
 - Verify all build, test, and security scans passed
 - Check workflow summary for failed jobs
 
+#### [ERROR] Auto-version failed to push tag or CHANGELOG
+
+**Problem**: The `RELEASE_TOKEN` secret is missing, expired, or lacks permissions
+
+**Solution**:
+
+1. Verify the `RELEASE_TOKEN` secret exists in repo Settings > Secrets
+2. Ensure the Classic PAT has `repo` and `workflow` scopes
+3. Check that the PAT has not expired
+4. Verify the PAT owner has push access to the `main` branch
+
+#### [ERROR] "Tag already exists" in auto-version
+
+**Problem**: The calculated version tag already exists (e.g., a concurrent merge)
+
+**Solution**:
+
+1. Check existing tags: `git tag -l`
+2. If the tag was created by a prior run, the next merge will increment past it
+3. If a PR branch tag conflicts with an existing tag, use a different version
+
 ---
 
 ## Maintenance
@@ -417,7 +495,7 @@ Renovate is configured to automatically update dependencies with the following f
 
 **Dashboard**:
 
-- View all pending updates: Issues tab → "Renovate Dependency Dashboard"
+- View all pending updates: Issues tab > "Renovate Dependency Dashboard"
 - See PRs before they're created
 - Control update scheduling per dependency
 
@@ -427,7 +505,7 @@ Renovate is configured to automatically update dependencies with the following f
 
 Recommended repository settings:
 
-### Branch Protection Rules (master)
+### Branch Protection Rules (main)
 
 - [x] Require pull request before merging
 - [x] Require status checks to pass
