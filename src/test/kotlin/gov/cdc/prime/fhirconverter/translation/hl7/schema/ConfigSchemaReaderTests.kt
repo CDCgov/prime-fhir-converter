@@ -8,11 +8,14 @@ import assertk.assertions.isNotEmpty
 import assertk.assertions.isNotNull
 import assertk.assertions.isTrue
 import assertk.assertions.messageContains
+import com.fasterxml.jackson.annotation.JsonProperty
+import gov.cdc.prime.fhirconverter.translation.hl7.ValueSetCollection
 import gov.cdc.prime.fhirconverter.translation.hl7.schema.ConfigSchemaReader.readOneYamlSchema
 import gov.cdc.prime.fhirconverter.translation.hl7.schema.converter.HL7ConverterSchema
 import gov.cdc.prime.fhirconverter.translation.hl7.schema.fhirTransform.FhirTransformSchema
 import gov.cdc.prime.fhirconverter.translation.hl7.utils.helpers.SchemaReferenceResolverHelper
 import java.io.File
+import java.util.SortedMap
 import kotlin.test.Test
 
 class ConfigSchemaReaderTests {
@@ -83,7 +86,7 @@ class ConfigSchemaReaderTests {
 
     @Test
     fun `test read converter vs fhir transform`() {
-        // This is a valid fhir transform schema
+        // This is a valid fhir transform schema with value set
         assertThat(
             ConfigSchemaReader.fromFile(
                 "classpath:/schema/fhir-transforms/sample_schema.yml",
@@ -175,6 +178,25 @@ class ConfigSchemaReaderTests {
         assertThat(schema.constants["lowLevelConstant"]).isEqualTo("lowLevelValue")
         assertThat(schema.constants["overriddenConstant"]).isEqualTo("overriddenValue")
         assertThat(schema.name).isEqualTo("/schema/schema-read-test-06/ORU_R01_extends.yml")
+    }
+
+    @Test
+    fun `test read converter schema with lookuptable`() {
+        // Implementation of [ValueSetCollection] to allow valueSet to be retrieved from a lookup table.
+        class ClassInheritFromValueSetCollection
+        (@JsonProperty("values") private val values: SortedMap<String, String>) : ValueSetCollection {
+            override fun toSortedMap(): SortedMap<String, String> = values
+            override fun getMappedValue(keyValue: String): String? = null
+            override fun isNotEmpty(): Boolean = values.isNotEmpty()
+        }
+        class ClassNotInheritFromValueSetCollection
+        assertThat(
+            ConfigSchemaReader.addValueSetClass(ClassInheritFromValueSetCollection::class.java)
+        )
+
+        assertFailure {
+            ConfigSchemaReader.addValueSetClass(ClassNotInheritFromValueSetCollection::class.java)
+        }
     }
 
     @Test

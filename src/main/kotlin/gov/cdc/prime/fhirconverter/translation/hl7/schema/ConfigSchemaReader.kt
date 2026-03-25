@@ -38,6 +38,8 @@ object ConfigSchemaReader : Logging {
      *   )
      */
     fun addValueSetClass(subtypeClass: Class<*>) {
+        if (!subtypeClass.interfaces[0].name.contains("ValueSetCollection"))
+            throw SchemaException("$subtypeClass must inherit from ValueSetCollection interface class.")
         yamlMapper.registerSubtypes(subtypeClass)
     }
 
@@ -273,6 +275,40 @@ object ConfigSchemaReader : Logging {
             .registerModule(JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
             .enable(DeserializationFeature.UNWRAP_SINGLE_VALUE_ARRAYS)
+
+        // This line is required to keep the separation of ValueSetCollection subtypes if we ever
+        // want to open-source that portion of the codebase
+//        mapper.registerSubtypes(LookupTableValueSet::class.java)
         mapper
     }
+
+//    /**
+//     * Data class for configuring [LookupTableValueSet].
+//     *
+//     * [tableName]: name of the lookup table
+//     * [keyColumn]: name of the lookup table column containing the key pair values
+//     * [valueColumn]: name of the lookup table column containing the value pair values
+//     */
+//    data class LookupTableValueSetConfig(val tableName: String, val keyColumn: String, val valueColumn: String)
+//
+//    /**
+//     * Implementation of [ValueSetCollection] to allow valueSet to be retrieved from a lookup table.
+//     * Provide [LookupTableValueSetConfig] to configure the lookup table source.
+//     */
+//    class LookupTableValueSet
+//        (@JsonProperty("lookupTable") private val configData: LookupTableValueSetConfig) :
+//        ValueSetCollection {
+//        private val mapVal: SortedMap<String, String> by lazy {
+//            val result = mutableMapOf<String, String>()
+//            result["CO"] = "Corolado"
+//            return@lazy result.toSortedMap()
+//        }
+//
+//        override fun toSortedMap(): SortedMap<String, String> = mapVal
+//        override fun getMappedValue(keyValue: String): String? {
+//            val lowerSet = toSortedMap().mapKeys { it.key.lowercase() }
+//            return lowerSet[keyValue.lowercase()]
+//        }
+//        override fun isNotEmpty(): Boolean = toSortedMap().isNotEmpty()
+//    }
 }
