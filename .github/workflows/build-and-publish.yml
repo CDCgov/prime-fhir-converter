@@ -70,11 +70,13 @@ jobs:
 
       - name: Validation summary
         run: |
-          echo "### Validation Passed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version**: ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Publish**: ${{ inputs.publish }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Format**: Valid semantic version" >> $GITHUB_STEP_SUMMARY
-          echo "- **Uniqueness**: No existing tag found" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### Validation Passed"
+            echo "- **Version**: ${{ inputs.version }}"
+            echo "- **Publish**: ${{ inputs.publish }}"
+            echo "- **Format**: Valid semantic version"
+            echo "- **Uniqueness**: No existing tag found"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================================
   # JOB 2: SECURITY SCAN - REPOSITORY
@@ -91,7 +93,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Run Trivy repository scan
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           scan-type: 'config'
           scan-ref: '.'
@@ -105,10 +107,12 @@ jobs:
       - name: Repository scan summary
         if: success()
         run: |
-          echo "### Repository Security Scan Passed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Scanner**: Trivy config + secrets" >> $GITHUB_STEP_SUMMARY
-          echo "- **Severity Threshold**: MEDIUM+" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status**: No vulnerabilities detected" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### Repository Security Scan Passed"
+            echo "- **Scanner**: Trivy config + secrets"
+            echo "- **Severity Threshold**: MEDIUM+"
+            echo "- **Status**: No vulnerabilities detected"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================================
   # JOB 3: BUILD
@@ -165,10 +169,12 @@ jobs:
           ls -lh build/libs/
           echo ""
           echo "Expected version: ${{ inputs.version }}"
-          echo "### Build Artifacts:" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          ls -lh build/libs/ >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### Build Artifacts:"
+            echo '```'
+            ls -lh build/libs/
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload main JAR
         uses: actions/upload-artifact@v5
@@ -200,11 +206,13 @@ jobs:
 
       - name: Build summary
         run: |
-          echo "### Build Completed Successfully" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version**: ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Java Version**: ${{ env.JAVA_VERSION }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Kotlin Linting**: Passed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Artifacts**: Main JAR + Shadow JAR" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### Build Completed Successfully"
+            echo "- **Version**: ${{ inputs.version }}"
+            echo "- **Java Version**: ${{ env.JAVA_VERSION }}"
+            echo "- **Kotlin Linting**: Passed"
+            echo "- **Artifacts**: Main JAR + Shadow JAR"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================================
   # JOB 4: TEST
@@ -268,16 +276,18 @@ jobs:
       - name: Test summary
         if: success()
         run: |
-          echo "### Tests Passed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Test Framework**: JUnit 5 + Kotlin Test" >> $GITHUB_STEP_SUMMARY
-          echo "- **Coverage Tool**: JaCoCo" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status**: All tests passed" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### Tests Passed"
+            echo "- **Test Framework**: JUnit 5 + Kotlin Test"
+            echo "- **Coverage Tool**: JaCoCo"
+            echo "- **Status**: All tests passed"
 
-          # Count test results if available
-          if [ -d "build/test-results/test" ]; then
-            TEST_COUNT=$(find build/test-results/test -name "*.xml" | wc -l)
-            echo "- **Test Files**: $TEST_COUNT" >> $GITHUB_STEP_SUMMARY
-          fi
+            # Count test results if available
+            if [ -d "build/test-results/test" ]; then
+              TEST_COUNT=$(find build/test-results/test -name "*.xml" | wc -l)
+              echo "- **Test Files**: $TEST_COUNT"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================================
   # JOB 5: SECURITY SCAN - DEPENDENCIES
@@ -310,7 +320,7 @@ jobs:
           ls -lh artifacts/
 
       - name: Run Trivy filesystem scan on JARs
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           scan-type: 'fs'
           scan-ref: 'artifacts/'
@@ -323,11 +333,13 @@ jobs:
       - name: Dependency scan summary
         if: success()
         run: |
-          echo "### Dependency Security Scan Passed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Scanner**: Trivy filesystem" >> $GITHUB_STEP_SUMMARY
-          echo "- **Target**: Project dependencies" >> $GITHUB_STEP_SUMMARY
-          echo "- **Severity Threshold**: MEDIUM+" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status**: No vulnerable dependencies detected" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### Dependency Security Scan Passed"
+            echo "- **Scanner**: Trivy filesystem"
+            echo "- **Target**: Project dependencies"
+            echo "- **Severity Threshold**: MEDIUM+"
+            echo "- **Status**: No vulnerable dependencies detected"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================================
   # JOB 6: SECURITY SCAN - ARTIFACTS
@@ -357,7 +369,7 @@ jobs:
           ls -lh artifacts/
 
       - name: Run Trivy scan on main JAR
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           scan-type: 'fs'
           scan-ref: 'artifacts/'
@@ -370,11 +382,13 @@ jobs:
       - name: Artifact scan summary
         if: success()
         run: |
-          echo "### Artifact Security Scan Passed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Scanner**: Trivy filesystem" >> $GITHUB_STEP_SUMMARY
-          echo "- **Targets**: Main JAR + Shadow JAR" >> $GITHUB_STEP_SUMMARY
-          echo "- **Severity Threshold**: MEDIUM+" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status**: No vulnerabilities in artifacts" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### Artifact Security Scan Passed"
+            echo "- **Scanner**: Trivy filesystem"
+            echo "- **Targets**: Main JAR + Shadow JAR"
+            echo "- **Severity Threshold**: MEDIUM+"
+            echo "- **Status**: No vulnerabilities in artifacts"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================================
   # JOB 7: CODEQL ANALYSIS
@@ -428,10 +442,12 @@ jobs:
       - name: CodeQL scan summary
         if: success()
         run: |
-          echo "### CodeQL Security Scan Passed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Language**: Java/Kotlin" >> $GITHUB_STEP_SUMMARY
-          echo "- **Queries**: Security-only" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status**: No code vulnerabilities detected" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### CodeQL Security Scan Passed"
+            echo "- **Language**: Java/Kotlin"
+            echo "- **Queries**: Security-only"
+            echo "- **Status**: No code vulnerabilities detected"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================================
   # JOB 8: PUBLISH
@@ -520,10 +536,12 @@ jobs:
           EOF
 
           if [ -n "$LATEST_TAG" ]; then
-            echo "" >> release-notes.md
-            echo "### Changes Since $LATEST_TAG" >> release-notes.md
-            echo "" >> release-notes.md
-            git log ${LATEST_TAG}..HEAD --pretty=format:"- %s (%h)" >> release-notes.md
+            {
+              echo ""
+              echo "### Changes Since $LATEST_TAG"
+              echo ""
+              git log "${LATEST_TAG}..HEAD" --pretty=format:"- %s (%h)"
+            } >> release-notes.md
           fi
 
           cat release-notes.md
@@ -544,16 +562,18 @@ jobs:
 
       - name: Publish summary
         run: |
-          echo "### Release Published Successfully" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version**: v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tag**: v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Artifacts**: 2 JARs attached" >> $GITHUB_STEP_SUMMARY
-          echo "- **URL**: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "[PASS] **All security scans passed**" >> $GITHUB_STEP_SUMMARY
-          echo "[PASS] **All tests passed**" >> $GITHUB_STEP_SUMMARY
-          echo "[PASS] **Build artifacts verified**" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "### Release Published Successfully"
+            echo ""
+            echo "- **Version**: v${{ inputs.version }}"
+            echo "- **Tag**: v${{ inputs.version }}"
+            echo "- **Artifacts**: 2 JARs attached"
+            echo "- **URL**: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ inputs.version }}"
+            echo ""
+            echo "[PASS] **All security scans passed**"
+            echo "[PASS] **All tests passed**"
+            echo "[PASS] **Build artifacts verified**"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================================
   # WORKFLOW SUMMARY
@@ -568,26 +588,22 @@ jobs:
     steps:
       - name: Generate workflow summary
         run: |
-          echo "## Workflow Execution Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Validation | ${{ needs.validate.result == 'success' && '[PASS]' || '[FAIL]' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build | ${{ needs.build.result == 'success' && '[PASS]' || '[FAIL]' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Tests | ${{ needs.test.result == 'success' && '[PASS]' || '[FAIL]' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Repo Security Scan | ${{ needs.security-scan-repo.result == 'success' && '[PASS]' || '[FAIL]' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Dependency Scan | ${{ needs.security-scan-dependencies.result == 'success' && '[PASS]' || '[FAIL]' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Artifact Scan | ${{ needs.security-scan-artifacts.result == 'success' && '[PASS]' || '[FAIL]' }} |" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Workflow Execution Summary"
+            echo ""
+            echo "| Stage | Status |"
+            echo "|-------|--------|"
+            echo "| Validation | ${{ needs.validate.result == 'success' && '[PASS]' || '[FAIL]' }} |"
+            echo "| Build | ${{ needs.build.result == 'success' && '[PASS]' || '[FAIL]' }} |"
+            echo "| Tests | ${{ needs.test.result == 'success' && '[PASS]' || '[FAIL]' }} |"
+            echo "| Repo Security Scan | ${{ needs.security-scan-repo.result == 'success' && '[PASS]' || '[FAIL]' }} |"
+            echo "| Dependency Scan | ${{ needs.security-scan-dependencies.result == 'success' && '[PASS]' || '[FAIL]' }} |"
+            echo "| Artifact Scan | ${{ needs.security-scan-artifacts.result == 'success' && '[PASS]' || '[FAIL]' }} |"
+            echo ""
 
-          # Add CodeQL scan status if it ran (only when publish=true)
-          if [ "${{ inputs.publish }}" == "true" ]; then
-            echo "| CodeQL Scan | ${{ needs.codeql-scan.result == 'success' && '[PASS]' || needs.codeql-scan.result == 'skipped' && '[SKIP]' || '[FAIL]' }} |" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          if [ "${{ inputs.publish }}" == "true" ]; then
-            echo "**Publish**: Enabled (conditional on all checks passing)" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "**Publish**: Disabled" >> $GITHUB_STEP_SUMMARY
-          fi
+            if [ "${{ inputs.publish }}" == "true" ]; then
+              echo "**Publish**: Enabled (conditional on all checks passing)"
+            else
+              echo "**Publish**: Disabled"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
