@@ -10,6 +10,7 @@ import assertk.assertions.isNotEmpty
 import assertk.assertions.isNotEqualTo
 import assertk.assertions.isNull
 import assertk.assertions.isTrue
+import ca.uhn.fhir.context.FhirContext
 import ca.uhn.hl7v2.HL7Exception
 import ca.uhn.hl7v2.model.Message
 import ca.uhn.hl7v2.util.Terser
@@ -29,6 +30,7 @@ import org.hl7.fhir.r4.model.Coding
 import org.hl7.fhir.r4.model.MessageHeader
 import org.hl7.fhir.r4.model.ServiceRequest
 import org.junit.jupiter.api.Nested
+import java.io.File
 import kotlin.test.Test
 
 class FhirToHl7ConverterTests {
@@ -431,6 +433,48 @@ class FhirToHl7ConverterTests {
                 " /schema/schema-read-test-01/ORU_R01.yml to FHIR bundle. \n" +
                 "Error was: Required element message-headers conditional was false or value was empty."
         )
+    }
+
+    @Test
+    fun `test convert OML_O21 message`() {
+        val testFile = File("src/test/resources/datatests/FHIR_to_HL7/sample_KS_20240429-0001-OML.fhir")
+        val fhirString = testFile.inputStream().readBytes().toString(Charsets.UTF_8)
+        val bundleParser = FhirContext.forR4().newJsonParser()
+        val bundle = bundleParser.parseResource(Bundle::class.java, fhirString)
+
+        val transformer = FhirToHl7Converter(
+            SchemaReferenceResolverHelper.retrieveHl7SchemaReference(
+                "classpath:/metadata/hl7_mapping/OML_O21/OML_O21-base.yml"
+            ),
+            warnings = mutableListOf(),
+            errors = mutableListOf()
+        )
+
+        val message = transformer.process(bundle)
+        assertThat(transformer.errors).isEmpty()
+        assertThat(Terser(message).get("MSH-9-1")).isEqualTo("OML")
+        assertThat(Terser(message).get("MSH-9-2")).isEqualTo("O21")
+    }
+
+    @Test
+    fun `test convert ORU_R01 message`() {
+        val testFile = File("src/test/resources/datatests/FHIR_to_HL7/sample_KS_20240429-0001-ORU.fhir")
+        val fhirString = testFile.inputStream().readBytes().toString(Charsets.UTF_8)
+        val bundleParser = FhirContext.forR4().newJsonParser()
+        val bundle = bundleParser.parseResource(Bundle::class.java, fhirString)
+
+        val transformer = FhirToHl7Converter(
+            SchemaReferenceResolverHelper.retrieveHl7SchemaReference(
+                "classpath:/metadata/hl7_mapping/ORU_R01/ORU_R01-base.yml"
+            ),
+            warnings = mutableListOf(),
+            errors = mutableListOf()
+        )
+
+        val message = transformer.process(bundle)
+        assertThat(transformer.errors).isEmpty()
+        assertThat(Terser(message).get("MSH-9-1")).isEqualTo("ORU")
+        assertThat(Terser(message).get("MSH-9-2")).isEqualTo("R01")
     }
 
     @Test
