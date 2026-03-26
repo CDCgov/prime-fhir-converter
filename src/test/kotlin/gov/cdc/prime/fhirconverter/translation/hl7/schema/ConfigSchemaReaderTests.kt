@@ -181,13 +181,13 @@ class ConfigSchemaReaderTests {
     }
 
     @Test
-    fun `test read converter schema with lookuptable`() {
+    fun `test subtype class must inherit from ValueSetCollection`() {
         // Implementation of [ValueSetCollection] to allow valueSet to be retrieved from a lookup table.
         class ClassInheritFromValueSetCollection
-        (@JsonProperty("values") private val values: SortedMap<String, String>) : ValueSetCollection {
-            override fun toSortedMap(): SortedMap<String, String> = values
+        (@JsonProperty("testValues") private val testValues: SortedMap<String, String>) : ValueSetCollection {
+            override fun toSortedMap(): SortedMap<String, String> = testValues
             override fun getMappedValue(keyValue: String): String? = null
-            override fun isNotEmpty(): Boolean = values.isNotEmpty()
+            override fun isNotEmpty(): Boolean = testValues.isNotEmpty()
         }
         class ClassNotInheritFromValueSetCollection
         assertThat(
