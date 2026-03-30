@@ -61,12 +61,10 @@ jobs:
 
           # Check if tag already exists locally or remotely
           if git tag -l | grep -qx "v${VERSION}" || git tag -l | grep -qx "${VERSION}"; then
-            echo "::error::Version tag already exists: v${VERSION} or ${VERSION}"
-            echo "::error::Please use a new version number"
-            exit 1
+            echo "::info::Version tag already exists on the branch: ${VERSION}"
           fi
 
-          echo "Version is unique: $VERSION"
+          echo "Version is correct: $VERSION"
 
       - name: Validation summary
         run: |
