@@ -1,5 +1,5 @@
 group = "gov.cdc.prime"
-version = project.findProperty("version") as String? ?: "1.0.0"
+version = project.findProperty("version") as String? ?: "1.0.0-SNAPSHOT"
 
 plugins {
     id("org.jetbrains.kotlin.jvm") version "1.8.10"
@@ -64,7 +64,7 @@ publishing {
         create<MavenPublication>("prime-fhirconverter") {
             groupId = "gov.cdc.prime"
             artifactId = "fhirconverter"
-            version = "1.0.0"
+            version = "1.0.0-SNAPSHOT"
 
             from(components["java"])
         }
