@@ -115,6 +115,7 @@ The resulting JAR will be in the `build/libs` folder
 * [Disclaimer](DISCLAIMER.md)
 * [Contribution Notice](CONTRIBUTING.md)
 * [Development's Guide](DEVELOPMENT.md)
+* [CI/CD Workflows](.github/workflows/README.md)
 * [Code of Conduct](code-of-conduct.md)
  
 ## Public Domain Standard Notice

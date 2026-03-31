@@ -13,12 +13,16 @@ on:
         required: false
         type: boolean
         default: false
+      pr_number:
+        description: 'PR number that triggered this release (auto-filled by auto-version)'
+        required: false
+        type: string
+        default: ''
 
-# Least-privilege permissions following security best practices
+# Least-privilege permissions: read-only at workflow level, write only where needed
 permissions:
-  contents: write        # Required for creating releases and tags
-  security-events: write # Required for uploading SARIF scan results
-  actions: read         # Required for workflow execution
+  contents: read
+  actions: read
 
 # Environment variables used across jobs
 env:
@@ -37,14 +41,15 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
+          persist-credentials: false
           fetch-depth: 0  # Fetch all history for tag checking
 
       - name: Validate semantic version format
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          VERSION="${{ inputs.version }}"
-
           # Validate semantic versioning format (X.Y.Z or X.Y.Z-suffix)
           if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$'; then
             echo "::error::Invalid version format: $VERSION"
@@ -56,9 +61,9 @@ jobs:
           echo "Version format is valid: $VERSION"
 
       - name: Check if version/tag already exists
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          VERSION="${{ inputs.version }}"
-
           # Check if tag already exists locally or remotely
           if git tag -l | grep -qx "v${VERSION}" || git tag -l | grep -qx "${VERSION}"; then
             echo "::info::Version tag already exists on the branch: ${VERSION}"
@@ -67,11 +72,14 @@ jobs:
           echo "Version is correct: $VERSION"
 
       - name: Validation summary
+        env:
+          VERSION: ${{ inputs.version }}
+          PUBLISH: ${{ inputs.publish }}
         run: |
           {
             echo "### Validation Passed"
-            echo "- **Version**: ${{ inputs.version }}"
-            echo "- **Publish**: ${{ inputs.publish }}"
+            echo "- **Version**: ${VERSION}"
+            echo "- **Publish**: ${PUBLISH}"
             echo "- **Format**: Valid semantic version"
             echo "- **Uniqueness**: No existing tag found"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -88,7 +96,9 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - name: Run Trivy repository scan
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
@@ -126,16 +136,18 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
         with:
           cache-read-only: false  # Build job writes to cache
 
@@ -146,27 +158,33 @@ jobs:
         run: ./gradlew ktlintCheck --no-daemon --stacktrace
 
       - name: Build application (skip tests)
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          echo "Building with version override: ${{ inputs.version }}"
+          echo "Building with version override: ${VERSION}"
           ./gradlew clean build -x test \
-            -Pversion=${{ inputs.version }} \
+            -Pversion="${VERSION}" \
             --no-daemon \
             --stacktrace \
             --warning-mode all
 
       - name: Build shadow JAR (fat JAR)
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
           ./gradlew shadowJar \
-            -Pversion=${{ inputs.version }} \
+            -Pversion="${VERSION}" \
             --no-daemon \
             --stacktrace
 
       - name: List build artifacts
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
           echo "=== Files in build/libs/ ==="
           ls -lh build/libs/
           echo ""
-          echo "Expected version: ${{ inputs.version }}"
+          echo "Expected version: ${VERSION}"
           {
             echo "### Build Artifacts:"
             echo '```'
@@ -175,7 +193,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload main JAR
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: main-jar
           path: build/libs/*-${{ inputs.version }}.jar
@@ -183,7 +201,7 @@ jobs:
           retention-days: 30
 
       - name: Upload shadow JAR
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: shadow-jar
           path: build/libs/*-${{ inputs.version }}-all.jar
@@ -191,7 +209,7 @@ jobs:
           retention-days: 30
 
       - name: Upload build outputs for reuse
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: build-outputs
           path: |
@@ -203,11 +221,13 @@ jobs:
           retention-days: 1
 
       - name: Build summary
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
           {
             echo "### Build Completed Successfully"
-            echo "- **Version**: ${{ inputs.version }}"
-            echo "- **Java Version**: ${{ env.JAVA_VERSION }}"
+            echo "- **Version**: ${VERSION}"
+            echo "- **Java Version**: ${JAVA_VERSION}"
             echo "- **Kotlin Linting**: Passed"
             echo "- **Artifacts**: Main JAR + Shadow JAR"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -224,21 +244,23 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
         with:
           cache-read-only: true  # Test job reads from cache
 
       - name: Download build outputs
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: build-outputs
           path: .
@@ -247,15 +269,17 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Run tests with JaCoCo coverage
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
           ./gradlew test jacocoTestReport \
-            -Pversion=${{ inputs.version }} \
+            -Pversion="${VERSION}" \
             --no-daemon \
             --stacktrace
 
       - name: Upload test results
         if: always()  # Upload even if tests fail
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: test-results
           path: |
@@ -265,7 +289,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: coverage-report
           path: build/reports/jacoco/test/
@@ -298,16 +322,18 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - name: Download main JAR
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: main-jar
           path: artifacts/
 
       - name: Download shadow JAR
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: shadow-jar
           path: artifacts/
@@ -350,13 +376,13 @@ jobs:
 
     steps:
       - name: Download main JAR
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: main-jar
           path: artifacts/
 
       - name: Download shadow JAR
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: shadow-jar
           path: artifacts/
@@ -401,22 +427,24 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
 
       - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@c10b8064de6f491fea524254123dbe5e09572f13 # v4
         with:
           languages: java
           queries: security-extended
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
         with:
           cache-read-only: true
 
@@ -424,15 +452,17 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build for CodeQL analysis
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
           ./gradlew clean build -x test \
-            -Pversion=${{ inputs.version }} \
+            -Pversion="${VERSION}" \
             --rerun-tasks \
             --no-daemon \
             --stacktrace
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@c10b8064de6f491fea524254123dbe5e09572f13 # v4
         with:
           category: "release-scan"
           upload: false
@@ -457,21 +487,24 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test, security-scan-repo, security-scan-dependencies, security-scan-artifacts, codeql-scan]
     if: inputs.publish == true
+    permissions:
+      contents: write  # Required for creating releases and tags
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Download main JAR
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: main-jar
           path: release-artifacts/
 
       - name: Download shadow JAR
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: shadow-jar
           path: release-artifacts/
@@ -483,13 +516,38 @@ jobs:
 
       - name: Generate release notes
         id: release-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+          PR_NUMBER: ${{ inputs.pr_number }}
         run: |
-          VERSION="${{ inputs.version }}"
 
           # Get latest tag for comparison
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
-          cat > release-notes.md << EOF
+          # Start release notes
+          : > release-notes.md
+
+          # If triggered by a tagged PR, prepend PR content
+          if [ -n "$PR_NUMBER" ]; then
+            PR_TITLE=$(gh pr view "$PR_NUMBER" --json title --jq '.title' 2>/dev/null || true)
+            PR_BODY=$(gh pr view "$PR_NUMBER" --json body --jq '.body' 2>/dev/null || true)
+
+            if [ -n "$PR_TITLE" ]; then
+              {
+                echo "## What's New in v${VERSION}"
+                echo ""
+                echo "### ${PR_TITLE} (#${PR_NUMBER})"
+                echo ""
+                echo "${PR_BODY}"
+                echo ""
+                echo "---"
+                echo ""
+              } >> release-notes.md
+            fi
+          fi
+
+          cat >> release-notes.md << EOF
           ## Release v${VERSION}
 
           ### Artifacts
@@ -545,28 +603,28 @@ jobs:
           cat release-notes.md
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ inputs.version }}
-          name: Release v${{ inputs.version }}
-          body_path: release-notes.md
-          draft: false
-          prerelease: false
-          files: |
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh release create "v${VERSION}" \
+            --title "Release v${VERSION}" \
+            --notes-file release-notes.md \
             release-artifacts/*.jar
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fail_on_unmatched_files: true
-          generate_release_notes: false
 
       - name: Publish summary
+        env:
+          VERSION: ${{ inputs.version }}
+          SERVER_URL: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
         run: |
           {
             echo "### Release Published Successfully"
             echo ""
-            echo "- **Version**: v${{ inputs.version }}"
-            echo "- **Tag**: v${{ inputs.version }}"
+            echo "- **Version**: v${VERSION}"
+            echo "- **Tag**: v${VERSION}"
             echo "- **Artifacts**: 2 JARs attached"
-            echo "- **URL**: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ inputs.version }}"
+            echo "- **URL**: ${SERVER_URL}/${REPO}/releases/tag/v${VERSION}"
             echo ""
             echo "[PASS] **All security scans passed**"
             echo "[PASS] **All tests passed**"
@@ -585,21 +643,30 @@ jobs:
 
     steps:
       - name: Generate workflow summary
+        env:
+          VALIDATE_RESULT: ${{ needs.validate.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          REPO_SCAN_RESULT: ${{ needs.security-scan-repo.result }}
+          DEP_SCAN_RESULT: ${{ needs.security-scan-dependencies.result }}
+          ART_SCAN_RESULT: ${{ needs.security-scan-artifacts.result }}
+          PUBLISH: ${{ inputs.publish }}
         run: |
+          status() { [ "$1" = "success" ] && echo "[PASS]" || echo "[FAIL]"; }
           {
             echo "## Workflow Execution Summary"
             echo ""
             echo "| Stage | Status |"
             echo "|-------|--------|"
-            echo "| Validation | ${{ needs.validate.result == 'success' && '[PASS]' || '[FAIL]' }} |"
-            echo "| Build | ${{ needs.build.result == 'success' && '[PASS]' || '[FAIL]' }} |"
-            echo "| Tests | ${{ needs.test.result == 'success' && '[PASS]' || '[FAIL]' }} |"
-            echo "| Repo Security Scan | ${{ needs.security-scan-repo.result == 'success' && '[PASS]' || '[FAIL]' }} |"
-            echo "| Dependency Scan | ${{ needs.security-scan-dependencies.result == 'success' && '[PASS]' || '[FAIL]' }} |"
-            echo "| Artifact Scan | ${{ needs.security-scan-artifacts.result == 'success' && '[PASS]' || '[FAIL]' }} |"
+            echo "| Validation | $(status "$VALIDATE_RESULT") |"
+            echo "| Build | $(status "$BUILD_RESULT") |"
+            echo "| Tests | $(status "$TEST_RESULT") |"
+            echo "| Repo Security Scan | $(status "$REPO_SCAN_RESULT") |"
+            echo "| Dependency Scan | $(status "$DEP_SCAN_RESULT") |"
+            echo "| Artifact Scan | $(status "$ART_SCAN_RESULT") |"
             echo ""
 
-            if [ "${{ inputs.publish }}" == "true" ]; then
+            if [ "$PUBLISH" == "true" ]; then
               echo "**Publish**: Enabled (conditional on all checks passing)"
             else
               echo "**Publish**: Disabled"
