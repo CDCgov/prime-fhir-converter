@@ -38,6 +38,8 @@ object ConfigSchemaReader : Logging {
      *   )
      */
     fun addValueSetClass(subtypeClass: Class<*>) {
+        if (!subtypeClass.interfaces[0].name.contains("ValueSetCollection"))
+            throw SchemaException("$subtypeClass must inherit from ValueSetCollection interface class.")
         yamlMapper.registerSubtypes(subtypeClass)
     }
 
