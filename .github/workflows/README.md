@@ -17,7 +17,7 @@ This directory contains GitHub Actions workflows for automated versioning, build
 - **Default (no tag on PR branch)**: Bumps the patch version of the latest semver tag on `main` (e.g., v1.2.3 -> v1.2.4)
 - **Custom version (tag on PR branch)**: If the PR author created a semver git tag on their branch (e.g., `v2.0.0`), that version is used instead
 - **CHANGELOG**: When a PR has a version tag, the CHANGELOG is updated with the PR title and body
-- **Build trigger**: After tagging, dispatches `build-and-publish.yml` with `publish=true`
+- **Build trigger**: After tagging, dispatches `build-and-publish.yml` with `publish=true`. For tagged PRs, also passes `pr_number` so the GitHub Release page includes the PR title and body
 
 **How to use as a contributor**:
 
@@ -35,6 +35,10 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for details.
 **Secrets required**:
 
 - `RELEASE_TOKEN`: Classic PAT with `repo` + `workflow` scopes. Used to push to the protected `main` branch and trigger downstream workflows.
+
+**Environment required**:
+
+- `release`: GitHub Environment configured in repo Settings. The auto-version job runs within this environment.
 
 **Flow**:
 
@@ -58,7 +62,7 @@ Check PR branch commits for version tags
 Create and push new tag on main
     |
     v
-Trigger build-and-publish.yml (version=X.Y.Z, publish=true)
+Trigger build-and-publish.yml (version=X.Y.Z, publish=true, pr_number=N if tagged)
 ```
 
 ---
@@ -73,6 +77,7 @@ Trigger build-and-publish.yml (version=X.Y.Z, publish=true)
 
 - `version` (required): Semantic version for the build (e.g., `1.0.0`, `2.1.3-beta.1`)
 - `publish` (optional): Boolean checkbox to publish artifacts to GitHub Releases (default: `false`)
+- `pr_number` (optional): PR number that triggered this release. Auto-filled by `auto-version.yml` when a tagged PR is merged. When set, the GitHub Release notes include the PR title and body above the standard boilerplate. Leave empty for manual runs.
 
 ---
 
@@ -209,8 +214,9 @@ Validates the version input before proceeding:
 #### `publish` (conditional)
 
 - **Only runs if**: `publish` input is `true` AND all previous jobs succeed (including CodeQL scan)
-- Creates GitHub Release with tag `v{version}`
+- Creates GitHub Release with tag `v{version}` using `gh release create`
 - Generates release notes with:
+  - PR title and body (when `pr_number` is provided by auto-version for tagged PRs)
   - Installation instructions
   - Security verification badges
   - Change log since last release

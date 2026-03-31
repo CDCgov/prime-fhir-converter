@@ -13,15 +13,17 @@ jobs:
     name: Version & Tag
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    environment: release
 
     steps:
       - name: Checkout main with full history
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           ref: main
           fetch-depth: 0
           fetch-tags: true
           token: ${{ secrets.RELEASE_TOKEN }}
+          persist-credentials: false
 
       - name: Get latest semver tag from main
         id: latest
@@ -83,16 +85,20 @@ jobs:
 
       - name: Calculate next version
         id: next
+        env:
+          HAS_TAG: ${{ steps.pr-tag.outputs.has_tag }}
+          PR_TAG: ${{ steps.pr-tag.outputs.tag }}
+          LATEST_MAJOR: ${{ steps.latest.outputs.major }}
+          LATEST_MINOR: ${{ steps.latest.outputs.minor }}
+          LATEST_PATCH: ${{ steps.latest.outputs.patch }}
+          LATEST_TAG: ${{ steps.latest.outputs.tag }}
         run: |
-          if [ "${{ steps.pr-tag.outputs.has_tag }}" == "true" ]; then
-            NEXT="${{ steps.pr-tag.outputs.tag }}"
+          if [ "$HAS_TAG" == "true" ]; then
+            NEXT="$PR_TAG"
             echo "Using version from PR tag: $NEXT"
           else
-            MAJOR=${{ steps.latest.outputs.major }}
-            MINOR=${{ steps.latest.outputs.minor }}
-            PATCH=${{ steps.latest.outputs.patch }}
-            NEXT="v${MAJOR}.${MINOR}.$((PATCH + 1))"
-            echo "Auto-bumping patch: ${{ steps.latest.outputs.tag }} -> $NEXT"
+            NEXT="v${LATEST_MAJOR}.${LATEST_MINOR}.$((LATEST_PATCH + 1))"
+            echo "Auto-bumping patch: $LATEST_TAG -> $NEXT"
           fi
 
           echo "version=${NEXT#v}" >> "$GITHUB_OUTPUT"
@@ -106,6 +112,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           NEXT_VERSION: ${{ steps.next.outputs.version }}
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           DATE=$(date +%Y-%m-%d)
 
@@ -151,44 +158,60 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${RELEASE_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git add CHANGELOG.md
           git commit -m "docs: update CHANGELOG for v${NEXT_VERSION}"
           git push origin main
 
       - name: Create and push version tag
+        env:
+          VERSION_TAG: ${{ steps.next.outputs.tag }}
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
-          TAG="${{ steps.next.outputs.tag }}"
-
           # Check if tag already exists
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "::error::Tag $TAG already exists"
+          if git rev-parse "$VERSION_TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $VERSION_TAG already exists"
             exit 1
           fi
 
-          git tag "$TAG"
-          git push origin "$TAG"
-          echo "Created and pushed tag: $TAG"
+          git remote set-url origin "https://x-access-token:${RELEASE_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git tag "$VERSION_TAG"
+          git push origin "$VERSION_TAG"
+          echo "Created and pushed tag: $VERSION_TAG"
 
       - name: Trigger build-and-publish workflow
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          VERSION: ${{ steps.next.outputs.version }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HAS_TAG: ${{ steps.pr-tag.outputs.has_tag }}
         run: |
-          VERSION="${{ steps.next.outputs.version }}"
           echo "Triggering build-and-publish with version=${VERSION}, publish=true"
-          gh workflow run build-and-publish.yml \
-            -f version="${VERSION}" \
-            -f publish=true
+          if [ "$HAS_TAG" == "true" ]; then
+            gh workflow run build-and-publish.yml \
+              -f version="${VERSION}" \
+              -f publish=true \
+              -f pr_number="${PR_NUMBER}"
+          else
+            gh workflow run build-and-publish.yml \
+              -f version="${VERSION}" \
+              -f publish=true
+          fi
 
       - name: Summary
+        env:
+          LATEST_TAG: ${{ steps.latest.outputs.tag }}
+          NEXT_TAG: ${{ steps.next.outputs.tag }}
+          HAS_TAG: ${{ steps.pr-tag.outputs.has_tag }}
         run: |
           {
             echo "### Auto Version Complete"
             echo ""
             echo "| Detail | Value |"
             echo "|--------|-------|"
-            echo "| Previous tag | \`${{ steps.latest.outputs.tag }}\` |"
-            echo "| New tag | \`${{ steps.next.outputs.tag }}\` |"
-            echo "| PR had version tag | ${{ steps.pr-tag.outputs.has_tag }} |"
-            echo "| CHANGELOG updated | ${{ steps.pr-tag.outputs.has_tag }} |"
+            echo "| Previous tag | \`${LATEST_TAG}\` |"
+            echo "| New tag | \`${NEXT_TAG}\` |"
+            echo "| PR had version tag | ${HAS_TAG} |"
+            echo "| CHANGELOG updated | ${HAS_TAG} |"
             echo "| Build triggered | yes |"
           } >> "$GITHUB_STEP_SUMMARY"
