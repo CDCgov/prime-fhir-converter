@@ -13,10 +13,10 @@ These transforms utilize FHIR Path in a similar manner to the FHIR to HL7 mappin
 
 ## Schema Design
 
-Here's an example of a sender transform:
+Here's an example of a transform:
 
 ```
-extends: sender-transform-base
+extends: transform-base
 constants:
     patientPath: "Bundle.entry.resource.ofType(Patient)"
 elements:
@@ -60,7 +60,7 @@ Element properties (in order of execution):
   another element may have populated, so it could be used to check the result of a
   previous element (elements must be kept in the correct order for this to work).
 - `bundleProperty` - a FHIR Path expression that denotes where to store the value. If the property does not yet exist,
-  ReportStream will attempt to create it, though there are restrictions around which types of resources/properties can
+  PRIME FHIR Converter will attempt to create it, though there are restrictions around which types of resources/properties can
   be dynamically created.
 - `value` - a list of FHIR Path expressions that evaluates to the proper FHIR Type to be
   assigned to the property specified in the `bundleProperty` element property. The first expression to
@@ -73,7 +73,7 @@ Element properties (in order of execution):
   This property is extensible; provide an implementation of `ValueSetCollection` to define a custom data provider.
   The following default implementation is provided:
     - `values` - Key value pairs are listed directly in a configuration schema.
-- `schema` - the name of a child schema to process. This points to another sender transform schema which will be used
+- `schema` - the name of a child schema to process. This points to another transform schema which will be used
   with this schema's resource as the focus resource. Cannot be used with `bundleProperty`, `value`, or `valueSet`.
 - `resourceIndex` - the name of a constant with the index of a resource collection. Useful to
   iterate over multiple resources. Can only be used with `schema`.
