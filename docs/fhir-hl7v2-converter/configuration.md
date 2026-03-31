@@ -5,7 +5,7 @@ flexible and reusable.
 # Schemas
 There are top level and child schemas. Top level schemas define an HL7 message type and HL7 message version as 
 supported by the Java HAPI HL7 v2 library. This initial version of the FHIR to HL7 v2 conversion library only 
-supports ORU R01 (version 1.0 of this library will support any type and version supported by the HAPI HL7 v2 library). A schema
+supports ORU R01 (a future version of this library will support any type and version supported by the HAPI HL7 v2 library). A schema
 also defines a list constants and one or more elements.
 
 | Property Name | Required?                 | Description                                                                                                 | Default |
@@ -60,11 +60,12 @@ Value elements are used to populate one or more HL7 v2 fields with a FHIR primit
       - '"official"'
     hl7Spec: [ '%{hl7NameField}-7' ]
     valueSet:
-      official: L
-      usual: D
-      maiden: M
-      nickname: N
-      anonymous: S
+      values:
+        official: L
+        usual: D
+        maiden: M
+        nickname: N
+        anonymous: S
 ```
 
 ## Schema Element Properties
