@@ -89,7 +89,7 @@ dependencies {
     implementation("ca.uhn.hapi.fhir:hapi-fhir-caching-caffeine:8.0.0")
     implementation("ca.uhn.hapi.fhir:hapi-fhir-validation:8.0.0")
     implementation("ca.uhn.hapi.fhir:hapi-fhir-validation-resources-r4:8.0.0")
-    implementation("commons-io:commons-io:2.11.0")
+    implementation("commons-io:commons-io:2.21.0")
 
     api("com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonVersion")
     api("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonVersion")
