@@ -2,7 +2,7 @@ group = "gov.cdc.prime"
 version = project.findProperty("version") as String? ?: "1.0.0-SNAPSHOT"
 
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "1.8.10"
+    id("org.jetbrains.kotlin.jvm") version "1.9.25"
     id("org.jlleitschuh.gradle.ktlint") version "11.3.1"
     id("com.github.johnrengelman.shadow") version "7.1.2"
     `java-library`
@@ -71,14 +71,14 @@ publishing {
     }
 }
 
-val jacksonVersion = "2.14.1"
+val jacksonVersion = "2.21.2"
 dependencies {
     // Align versions of all Kotlin components
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
 
     implementation("org.apache.logging.log4j:log4j-api:[2.17.1,)")
     implementation("org.apache.logging.log4j:log4j-core:[2.17.1,)")
-    api("org.apache.logging.log4j:log4j-api-kotlin:1.2.0")
+    api("org.apache.logging.log4j:log4j-api-kotlin:1.5.0")
     implementation("com.googlecode.libphonenumber:libphonenumber:8.13.5")
     api("ca.uhn.hapi:hapi-structures-v251:2.6.0")
 
